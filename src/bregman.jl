@@ -39,7 +39,7 @@ For example, for sparsity promoting denoising (i.e LSRTM)
     * x: Initial guess
 """
 
-function bregman(A, TD, x::AbstractArray{vDt}, b, options) where {vDt}
+function bregman(A, TD, x::Array{vDt}, b, options) where {vDt}
     # Objective function wrapper
     function obj(x)
         d = A*x
@@ -48,7 +48,7 @@ function bregman(A, TD, x::AbstractArray{vDt}, b, options) where {vDt}
         return fun, grad
     end
     
-    return bregman(obj, TD, x, options)
+    return bregman(obj, x, options, TD)
 end
 
 """
@@ -110,7 +110,7 @@ function bregman(funobj::Function, x::AbstractArray{vDt}, options, TD=nothing) w
         # Update dual variable
         @. z = z + d
         # Get λ at first iteration
-        i%10 == 1  && (λ = quantile(abs.(z), options.quantile))
+        i%10 == 1  && (λ = vDt(quantile(abs.(z), options.quantile)))
         # Update x
         x = TD'*soft_thresholding(z, λ)
 

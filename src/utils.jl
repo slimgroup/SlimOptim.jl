@@ -149,7 +149,7 @@ end
 
 
 # THresholding
-soft_thresholding(x::Array{Complex{vDt}}, λ::vDt) where {vDt} = exp.(angle.(x)im) .* max.(abs.(x) .- convert(vDt, λ), 0.0)   
-soft_thresholding(x::Array{Complex{vDt}}, λ::Array{vDt}) where {vDt} = exp.(angle.(x)im) .* max.(abs.(x) .- convert(Array{vDt}, λ), 0.0)
-soft_thresholding(x::Array{vDt}, λ::vDt) where {vDt} = sign.(x) .* max.(abs.(x) .- convert(vDt, λ), 0.0)
-soft_thresholding(x::Array{vDt}, λ::Array{vDt}) where {vDt} = sign.(x) .* max.(abs.(x) .- convert(Array{vDt}, λ), 0f0)
+soft_thresholding(x::Array{Complex{vDt}}, λ::vDt) where {vDt} = exp.(angle.(x)im) .* max.(abs.(x) .- convert(vDt, λ), vDt(0))
+soft_thresholding(x::Array{Complex{vDt}}, λ::Array{vDt}) where {vDt} = exp.(angle.(x)im) .* max.(abs.(x) .- convert(Array{vDt}, λ), vDt(0))
+soft_thresholding(x::Array{vDt}, λ::vDt) where {vDt} = sign.(x) .* max.(abs.(x) .- convert(vDt, λ), vDt(0))
+soft_thresholding(x::Array{vDt}, λ::Array{vDt}) where {vDt} = sign.(x) .* max.(abs.(x) .- convert(Array{vDt}, λ), vDt(0))

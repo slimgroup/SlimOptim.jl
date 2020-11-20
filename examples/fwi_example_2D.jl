@@ -56,14 +56,13 @@ for j=1:niterations
     # linesearch
     function ϕ(α) 
         F0.model.m .= proj(model0.m .+ α * direction)
-        misfit = .5*norm(F0[i]*q[i] - d_obs[i])
-        println(misfit)
+        misfit = .5*norm(F0[i]*q[i] - d_obs[i])^2
         return misfit
     end
-    step = ls(ϕ, 1f0, fval, dot(gradient, direction))
+    step, fval = ls(ϕ, 1f0, fval, dot(gradient, direction))
 
     # Update model and bound projection
-    model0.m = proj(model0.m + reshape(step,model0.n))
+    model0.m = proj(model0.m .+ step .* direction)
 end
 
 figure(); imshow(sqrt.(1f0./adjoint(model0.m))); title("FWI with SGD")
