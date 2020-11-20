@@ -1,6 +1,3 @@
-export minConf_PQN, pqn_options
-
-
 mutable struct PQN_params
     verbose
     optTol
@@ -26,10 +23,10 @@ end
 
 Options structure for Spectral Project Gradient algorithm.
 
-    * verbose: level of verbosity (0: no output, 1: final, 2: iter (default), 3: debug)
+    * verbose: level of verbosity (0: no output, 1: iter (default))
     * optTol: tolerance used to check for optimality (default: 1e-5)
     * progTol: tolerance used to check for progress (default: 1e-9)
-    * maxIter: maximum number of calls to objective (default: 15)
+    * maxIter: maximum number of iterations (default: 20)
     * suffDec: sufficient decrease parameter in Armijo condition (default: 1e-4)
     * corrections: number of lbfgs corrections to store (default: 10)
     * adjustStep: use quadratic initialization of line search (default: 0)
@@ -41,7 +38,7 @@ Options structure for Spectral Project Gradient algorithm.
     * SPGtestOpt: Whether to check for optimality in SPG (default: false)
     * maxLinesearchIter: Maximum number of line search iteration (default: 20)
 """
-function pqn_options(;verbose=2, optTol=1f-5, progTol=1f-7,
+function pqn_options(;verbose=0, optTol=1f-5, progTol=1f-7,
                      maxIter=20, suffDec=1f-4, corrections=10, adjustStep=false,
                      bbInit=true, store_trace=false, SPGoptTol=1f-6, SPGprogTol=1f-7,
                      SPGiters=10, SPGtestOpt=false, maxLinesearchIter=20)
@@ -72,7 +69,7 @@ function pqn(funObj, x::Array{vDt}, funProj, options) where {vDt}
     spg_opt = spg_options(optTol=options.SPGoptTol,progTol=options.SPGprogTol, maxIter=options.SPGiters,
                           testOpt=options.SPGtestOpt, feasibleInit=~options.bbInit, verbose=0)
     # Output Parameter Settings
-    if options.verbose >= 3
+    if options.verbose > 0
        @printf("Running PQN...\n");
        @printf("Number of L-BFGS Corrections to store: %d\n",options.corrections)
        @printf("Spectral initialization of SPG: %d\n",options.bbInit)
@@ -100,14 +97,14 @@ function pqn(funObj, x::Array{vDt}, funProj, options) where {vDt}
     update!(sol; iter=1, misfit=f, sol=x, gradient=g, store_trace=options.store_trace)
 
     # Output Log
-    if options.verbose >= 2
+    if options.verbose > 0
         @printf("%10s %10s %10s %15s %15s %15s\n","Iteration","FunEvals","Projections","Step Length","Function Val","Opt Cond")
         @printf("%10d %10d %10d %15.5e %15.5e %15.5e\n",0, 0, 0, 0, f, norm(projection(x-g)-x, Inf))
     end
     
     # Check Optimality of Initial Point
     if maximum(abs.(projection(x-g)-x)) < options.optTol
-        options.verbose >= 1 && @printf("First-Order Optimality Conditions Below optTol at Initial Point\n");
+        options.verbose > 0 && @printf("First-Order Optimality Conditions Below optTol at Initial Point\n");
         update!(sol; misfit=f, gradient=g, store_trace=options.store_trace)
         return sol
     end
@@ -156,7 +153,7 @@ function pqn(funObj, x::Array{vDt}, funProj, options) where {vDt}
         # Check that Progress can be made along the direction
         gtd = dot(g,d)
         if gtd > -options.progTol && (i > options.corrections/2)
-            options.verbose >= 1 && @printf("Directional Derivative below progTol\n")
+            options.verbose > 0 && @printf("Directional Derivative below progTol\n")
             break
         end
         # Select Initial Guess to step length
@@ -175,7 +172,7 @@ function pqn(funObj, x::Array{vDt}, funProj, options) where {vDt}
 	    optCond = norm(projection(x-g) - x, Inf)
         i>1 && (terminate(options, optCond, t, d, f, sol.misfit) && break)
         # Output Log
-        if options.verbose >= 2
+        if options.verbose > 0
             @printf("%10d %10d %10d %15.5e %15.5e %15.5e\n",i,sol.n_feval, sol.n_project, t, f, optCond)
         end
 

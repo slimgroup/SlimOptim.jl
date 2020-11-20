@@ -1,5 +1,3 @@
-export boundproject, isLegal, minConf_SPG, polyinterp, polyval, spg_options
-
 mutable struct SPG_params
     verbose
     optTol
@@ -29,10 +27,10 @@ end
 
 Options structure for Spectral Project Gradient algorithm.
 
-    * verbose: level of verbosity (0: no output, 1: final, 2: iter (default), 3: debug)
+    * verbose: level of verbosity (0: no output, 1: iter (default))
     * optTol: tolerance used to check for optimality (default: 1e-5)
     * progTol: tolerance used to check for lack of progress (default: 1e-9)
-    * maxIter: maximum number of calls to funObj (default: 500)
+    * maxIter: maximum number of iterations (default: 20)
     * suffDec: sufficient decrease parameter in Armijo condition (default: 1e-4)
     * interp: type of interpolation (0: step-size halving, 2: cubic)
     * memory: number of steps to look back in non-monotone Armijo condition
@@ -47,7 +45,7 @@ Options structure for Spectral Project Gradient algorithm.
     * iniStep: Initial step length estimate (default: 1)
     * maxLinesearchIter: Maximum number of line search iteration (default: 20)
 """
-function spg_options(;verbose=2,optTol=1f-5,progTol=1f-7,
+function spg_options(;verbose=1,optTol=1f-5,progTol=1f-7,
                      maxIter=20,suffDec=1f-4,interp=0,memory=2,
                      useSpectral=true,curvilinear=false,
                      feasibleInit=false,testOpt=true,
@@ -78,7 +76,7 @@ Function for using Spectral Projected Gradient to solve problems of the form
 Adapted fromt he matlab implementation of minConf_SPG
 """
 function spg(funObj, x::Array{vDt}, funProj, options) where {vDt}
-    if options.verbose >= 3
+    if options.verbose > 0
        @printf("Running SPG...\n");
        @printf("Number of objective function to store: %d\n",options.memory);
        @printf("Using  spectral projection : %s\n",options.useSpectral);
@@ -106,7 +104,7 @@ function spg(funObj, x::Array{vDt}, funProj, options) where {vDt}
     update!(sol; iter=1, misfit=f, gradient=g, sol=x, store_trace=options.store_trace)
 
     # Output Log
-    if options.verbose >= 2
+    if options.verbose > 0
         if options.testOpt
             @printf("%10s %10s %10s %15s %15s %15s %15s\n","Iteration","FunEvals","Projections","Step Length","alpha","Function Val","Opt Cond")
             @printf("%10d %10d %10d %15.5e %15.5e %15.5e %15.5e\n",0,0,0,0,0,f,norm(projection(x-g)-x, options.optNorm))
@@ -119,7 +117,7 @@ function spg(funObj, x::Array{vDt}, funProj, options) where {vDt}
     # Optionally check optimality
     if options.testOpt && options.testInit
         if norm(projection(x-g)-x,options.optNorm) < optTol
-            verbose >= 1 &&  @printf("First-Order Optimality Conditions Below optTol at Initial Point, norm g is %5.4f \n", norm(g))
+            verbose > 0 &&  @printf("First-Order Optimality Conditions Below optTol at Initial Point, norm g is %5.4f \n", norm(g))
             return
         end
     end
@@ -150,7 +148,7 @@ function spg(funObj, x::Array{vDt}, funProj, options) where {vDt}
         # Check that Progress can be made along the direction
         gtd = dot(g,d)
         if gtd > -options.progTol && i>1
-            options.verbose >= 1 &&  @printf("Directional Derivative below progTol\n")
+            options.verbose > 0 &&  @printf("Directional Derivative below progTol\n")
             break
         end
 
@@ -185,7 +183,7 @@ function spg(funObj, x::Array{vDt}, funProj, options) where {vDt}
         end
 
         # Output Log
-        if options.verbose >= 2
+        if options.verbose > 0
             if options.testOpt
                 @printf("%10d %10d %10d %15.5e %15.5e %15.5e %15.5e\n",i,sol.n_feval,sol.n_project,t,alpha,f,optCond)
             else

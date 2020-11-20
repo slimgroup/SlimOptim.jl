@@ -4,11 +4,11 @@
 #
 
 using Statistics, Random, LinearAlgebra
-using JUDI.TimeModeling, SlimOptim, HDF5, SegyIO, PyPlot
+using JUDI, JUDI.TimeModeling, SlimOptim, HDF5, SegyIO, PyPlot
 
 # Load starting model
 path = dirname(pathof(JUDI))
-n,d,o,m0 = read(h5open(path*"../data/overthrust_model.h5","r"), "n", "d", "o", "m0")
+n,d,o,m0 = read(h5open(path*"/../data/overthrust_model.h5","r"), "n", "d", "o", "m0")
 model0 = Model((n[1],n[2]), (d[1],d[2]), (o[1],o[2]), m0)
 
 # Bound constraints
@@ -23,7 +23,7 @@ mmin = vec((1f0 ./ vmax).^2)
 mmax = vec((1f0 ./ vmin).^2)
 
 # Load data
-block = segy_read("../../data/overthrust_shot_records.segy")
+block = segy_read(path*"/../data/overthrust_shot_records.segy")
 d_obs = judiVector(block)
 
 # Set up wavelet
@@ -32,7 +32,7 @@ wavelet = ricker_wavelet(src_geometry.t[1],src_geometry.dt[1],0.008f0)  # 8 Hz w
 q = judiVector(src_geometry,wavelet)
 
 ############################### FWI ###########################################
-F = judiModeling(model0, src_geometry, d_obs.geometry)
+F0 = judiModeling(model0, src_geometry, d_obs.geometry)
 
 # Optimization parameters
 niterations = 10
@@ -49,15 +49,21 @@ for j=1:niterations
     # get fwi objective function value and gradient
     i = randperm(d_obs.nsrc)[1:batchsize]
     fval, gradient = fwi_objective(model0,q[i],d_obs[i])
+    direction = -gradient./norm(gradient, Inf)
     println("FWI iteration no: ",j,"; function value: ",fval)
     fhistory_SGD[j] = fval
 
     # linesearch
-    ϕ(α) = (F0.model.m = proj(model0.m .+ α * gradient); dpred = F*q; return .5f0*norm(dpred - dobs[i])^2)
-	step = ls(ϕ, 1f0, fval, -dot(gradient, gradient))
+    function ϕ(α) 
+        F0.model.m .= proj(model0.m .+ α * direction)
+        misfit = .5*norm(F0[i]*q[i] - d_obs[i])
+        println(misfit2)
+        return misfit
+    end
+    step = ls(ϕ, 1f0, fval, dot(gradient, direction))
 
-	# Update model and bound projection
-	model0.m = proj(model0.m + reshape(step,model0.n))
+    # Update model and bound projection
+    model0.m = proj(model0.m + reshape(step,model0.n))
 end
 
 figure(); imshow(sqrt.(1f0./adjoint(model0.m))); title("FWI with SGD")

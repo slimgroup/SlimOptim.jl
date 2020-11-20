@@ -2,7 +2,7 @@ using LinearAlgebra
 
 N = 10
 
-A = diagm(1:N)
+A = Diagonal(1:N)
 
 function proj(x)
     xp = deepcopy(x)
