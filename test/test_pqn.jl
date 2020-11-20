@@ -22,11 +22,11 @@ end
 opt = pqn_options(maxIter=100, progTol=0, corrections=100, maxLinesearchIter=100, optTol=0, verbose=2)
 sol = pqn(obj, randn(N), proj, opt)
 
-@test sol.misfit/sol.f_trace[1]  < 1e-12
-@test norm(sol.sol - x0)/(norm(x0) + norm(sol.sol)) < 1f-4
+@test sol.ϕ/sol.ϕ_trace[1]  < 1e-12
+@test norm(sol.x - x0)/(norm(x0) + norm(sol.x)) < 1f-4
 
 opt = pqn_options(maxIter=100, progTol=0, adjustStep=true, corrections=100, maxLinesearchIter=100, optTol=0, verbose=2)
 sol = pqn(obj, randn(N), proj, opt)
 
-@test sol.misfit/sol.f_trace[1]  < 1e-12
-@test norm(sol.sol - x0)/(norm(x0) + norm(sol.sol)) < 1f-4
+@test sol.ϕ/sol.ϕ_trace[1]  < 1e-12
+@test norm(sol.x - x0)/(norm(x0) + norm(sol.x)) < 1f-4

@@ -11,6 +11,7 @@ export spg, spg_options
 export bregman, bregman_options
 #############################################################################
 # Optimization algorithms
+include("linesearches.jl")   # minConf_PQN
 include("SPGSlim.jl")   # minConf_SPG
 include("PQNSlim.jl")   # minConf_PQN
 include("bregman.jl")   # minConf_PQN

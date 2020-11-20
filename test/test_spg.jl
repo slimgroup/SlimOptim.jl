@@ -21,8 +21,8 @@ end
 opt = spg_options(maxIter=100, progTol=0, optTol=0, verbose=2)
 sol = spg(obj, randn(N), proj, opt)
 
-@show norm(sol.sol - x0)/(norm(x0) + norm(sol.sol))
-@show sol.misfit/sol.f_trace[1]
+@show norm(sol.x - x0)/(norm(x0) + norm(sol.x))
+@show sol.ϕ/sol.ϕ_trace[1]
 
-@test sol.misfit/sol.f_trace[1]  < 1e-9
-@test norm(sol.sol - x0)/(norm(x0) + norm(sol.sol)) < 1f-4
+@test sol.ϕ/sol.ϕ_trace[1]  < 1e-9
+@test norm(sol.x - x0)/(norm(x0) + norm(sol.x)) < 1f-4

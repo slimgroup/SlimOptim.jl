@@ -56,15 +56,41 @@ Function for using a limited-memory projected quasi-Newton to solve problems of 
 The projected quasi-Newton sub-problems are solved the spectral projected
 gradient algorithm
 
-  * objective(x): function to minimize (returns gradient as second argument)
-  * projection(x): function that returns projection of x onto C
+  * funObj(x): function to minimize (returns gradient as second argument)
+  * funProj(x): function that returns projection of x onto C
   * x: Initial guess
   * options: pqn_options structure
 
 Notes:
     Adapted fromt he matlab implementation of minConf_PQN
 """
-function pqn(funObj, x::Array{vDt}, funProj, options, ls=nothing) where {vDt}
+function pqn(funObj, x::AbstractArray{vDt}, funProj, options, ls=nothing) where {vDt}
+    f(x) = funObj(x)[1]
+    g!(g, x) = (g .= funObj(x)[2]; return)
+    fg!(g, x) = ((obj, g0) = funObj(x); g .= g0; return obj)
+    return pqn(f, g!, fg!, x, funProj, options, ls)
+end
+
+"""
+    minConf_PQN(f, g!, fg!, x, projection,options)
+
+Function for using a limited-memory projected quasi-Newton to solve problems of the form
+  min objective(x) s.t. x in C
+
+The projected quasi-Newton sub-problems are solved the spectral projected
+gradient algorithm
+
+  * f(x): function to minimize (returns objective only)
+  * g!(x): gradient of function (returns gradient only)
+  * fg!(x): objective and gradient
+  * funProj(x): function that returns projection of x onto C
+  * x: Initial guess
+  * options: pqn_options structure
+
+Notes:
+    Adapted fromt he matlab implementation of minConf_PQN
+"""
+function pqn(f::Function, g!::Function, fg!::Function, x::AbstractArray{vDt}, funProj, options, ls=nothing) where {vDt}
     nVars = length(x)
     spg_opt = spg_options(optTol=options.SPGoptTol,progTol=options.SPGprogTol, maxIter=options.SPGiters,
                           testOpt=options.SPGtestOpt, feasibleInit=~options.bbInit, verbose=0)
@@ -84,29 +110,35 @@ function pqn(funObj, x::Array{vDt}, funProj, options, ls=nothing) where {vDt}
 
     # Result structure
     sol = result(x)
+    g = similar(x)
 
     # Setup Function to track number of evaluations
     projection(x) = (sol.n_project +=1; return funProj(x))
-    objective(x) = (sol.n_feval +=1 ; return funObj(x))
+    obj(x) = (sol.n_ϕeval +=1 ; return f(x))
+    grad!(g, x) = (sol.n_geval +=1 ; return g!(g, x))
+    objgrad!(g, x) = (sol.n_ϕeval +=1;sol.n_geval +=1 ; return fg!(g, x))
+
     # Line search function
     isnothing(ls) && (ls = BackTracking(order=3, iterations=options.maxLinesearchIter))
     checkls(ls)
+
     # Project initial parameter vector
     x = projection(x)
+
     # Evaluate initial parameters
-    f, g = objective(x)
-    update!(sol; iter=1, misfit=f, sol=x, gradient=g, store_trace=options.store_trace)
+    ϕ = objgrad!(g, x)
+    update!(sol; iter=1, ϕ=ϕ, x=x, g=g, store_trace=options.store_trace)
 
     # Output Log
     if options.verbose > 0
-        @printf("%10s %10s %10s %15s %15s %15s\n","Iteration","FunEvals","Projections","Step Length","Function Val","Opt Cond")
-        @printf("%10d %10d %10d %15.5e %15.5e %15.5e\n",0, 0, 0, 0, f, norm(projection(x-g)-x, Inf))
+        @printf("%10s %10s %10s %10s %15s %15s %15s\n","Iteration","FunEvals","GradEvals","Projections","Step Length","Function Val","Opt Cond")
+        @printf("%10d %10d %10d %10d %15.5e %15.5e %15.5e\n",0, 0, 0, 0, 0, ϕ, norm(projection(x-g)-x, Inf))
     end
     
     # Check Optimality of Initial Point
     if maximum(abs.(projection(x-g)-x)) < options.optTol
         options.verbose > 0 && @printf("First-Order Optimality Conditions Below optTol at Initial Point\n");
-        update!(sol; misfit=f, gradient=g, store_trace=options.store_trace)
+        update!(sol; ϕ=ϕ, g=g, store_trace=options.store_trace)
         return sol
     end
 
@@ -121,8 +153,8 @@ function pqn(funObj, x::Array{vDt}, funProj, options, ls=nothing) where {vDt}
         if i == 1
             p = projection(x-g)
         else
-            y = g-sol.gradient
-            s = x-sol.sol
+            y = g-sol.g
+            s = x-sol.x
             S, Y, Hdiag = lbfgsUpdate(y,s,options.corrections,options.verbose,S,Y,Hdiag)
 
             # Make Compact Representation
@@ -158,26 +190,25 @@ function pqn(funObj, x::Array{vDt}, funProj, options, ls=nothing) where {vDt}
             break
         end
         # Select Initial Guess to step length
-        (~options.adjustStep || gtd == 0 || i==1) ? t = 1.0 : t = vDt(min(1, 2*(f-sol.misfit)/gtd))
+        (~options.adjustStep || gtd == 0 || i==1) ? t = 1.0 : t = vDt(min(1, 2*(ϕ-sol.ϕ)/gtd))
 
         # Save history
-        i>1 && update!(sol; iter=i, misfit=f, sol=x, gradient=g, store_trace=options.store_trace)
+        i>1 && update!(sol; iter=i, ϕ=ϕ, x=x, g=g, store_trace=options.store_trace)
         
         # Line search
-        ϕ(α) = (sol.n_feval +=1 ; return funObj(sol.sol + α * d)[1])
-        t, f = ls(ϕ, t, sol.misfit, gtd)
-        x .= projection(sol.sol + t*d)
-        f, g = objective(x)
+        t, ϕ = linesearch(ls, sol, d, obj, grad!, objgrad!, t, sol.ϕ, gtd, g)
+        x .= projection(sol.x + t*d)
+        grad!(g, x)
 
         # Check termination
 	    optCond = norm(projection(x-g) - x, Inf)
-        i>1 && (terminate(options, optCond, t, d, f, sol.misfit) && break)
+        i>1 && (terminate(options, optCond, t, d, ϕ, sol.ϕ) && break)
         # Output Log
         if options.verbose > 0
-            @printf("%10d %10d %10d %15.5e %15.5e %15.5e\n",i,sol.n_feval, sol.n_project, t, f, optCond)
+            @printf("%10d %10d %10d %10d %15.5e %15.5e %15.5e\n",i,sol.n_ϕeval, sol.n_geval, sol.n_project, t, ϕ, optCond)
         end
 
     end
-    isLegal(x) && update!(sol; iter=options.maxIter+1, misfit=f, sol=x, gradient=g, store_trace=options.store_trace)
+    isLegal(x) && update!(sol; iter=options.maxIter+1, ϕ=ϕ, x=x, g=g, store_trace=options.store_trace)
     return return sol
 end

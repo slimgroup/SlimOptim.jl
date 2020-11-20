@@ -34,7 +34,6 @@ q = judiVector(src_geometry,wavelet)
 
 ############################### FWI ###########################################
 
-
 # Optimization parameters
 fevals = 16
 batchsize = 8
@@ -54,7 +53,7 @@ function objective_function(x)
 end
 
 # Bound projection
-ProjBound(x) = median([mmin x mmax]; dims=2)
+ProjBound(x) = (x[x.< mmin].=mmin[x.< mmin];x[x.>mmax].=mmax[x.>mmax])
 
 # FWI with SPG
 options = spg_options(verbose=3, maxIter=fevals, memory=3)

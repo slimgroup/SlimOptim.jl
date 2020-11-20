@@ -30,7 +30,7 @@ bregman_options(;verbose=1, progTol=1e-8, maxIter=20, store_trace=false, anticha
 
 Linearized bregman iteration for the system
 
-    ||TD*x||_1 + λ ||x||_2   s.t A*x = b
+    ||TD*x||_1 + λ ||TD*x||_2   s.t A*x = b
 
 For example, for sparsity promoting denoising (i.e LSRTM)
     * TD: curvelet transform
@@ -40,7 +40,7 @@ For example, for sparsity promoting denoising (i.e LSRTM)
 """
 
 function bregman(A, TD, x::Array{vDt}, b, options) where {vDt}
-    # Objective function wrapper
+    # residual function wrapper
     function obj(x)
         d = A*x
         fun = .5*norm(d - b)^2
@@ -56,11 +56,11 @@ end
 
 Linearized bregman iteration for the system
 
-    .5 * ||TD*x||_2^2 + λ ||x||_1   s.t A*x = b
+    .5 * ||TD*x||_2^2 + λ ||TD*x||_1   s.t A*x = b
 
 For example, for sparsity promoting denoising (i.e LSRTM)
     * TD: curvelet transform
-    * fun: objective function, return the tuple (||A*x - b||_2, A'*(A*x - b))
+    * fun: residual function, return the tuple (||A*x - b||_2, A'*(A*x - b))
     * b: observed data
     * x: Initial guess
 """
@@ -88,7 +88,7 @@ function bregman(funobj::Function, x::AbstractArray{vDt}, options, TD=nothing) w
 
     # Output Log
     if options.verbose > λ
-        @printf("%10s %15s %15s %15s %5s\n","Iteration","Step Length", "Bregman objective", "||A*x - b||_2^2", "λ")
+        @printf("%10s %15s %15s %15s %5s\n","Iteration","Step Length", "Bregman residual", "||A*x - b||_2^2", "λ")
     end
 
     # Iterations
@@ -107,7 +107,7 @@ function bregman(funobj::Function, x::AbstractArray{vDt}, options, TD=nothing) w
             mul!(d, d, t)
             d[inds_z] .*= abs.(tk[inds_z])/i
         end
-        # Update dual variable
+        # Update z variable
         @. z = z + d
         # Get λ at first iteration
         i%10 == 1  && (λ = vDt(quantile(abs.(z), options.quantile)))
@@ -118,8 +118,8 @@ function bregman(funobj::Function, x::AbstractArray{vDt}, options, TD=nothing) w
         if options.verbose > 0
             @printf("%10d %15.5e %15.5e %15.5e %15.5e \n",i, t, obj_fun, f, λ)
         end
-        norm(x - sol.sol) < options.progTol && (@printf("Step size below progTol\n"); break;)
-        update!(sol; iter=i, misfit=f, objective=obj_fun, sol=x, dual=z, gradient=g, store_trace=options.store_trace)
+        norm(x - sol.x) < options.progTol && (@printf("Step size below progTol\n"); break;)
+        update!(sol; iter=i, ϕ=f, residual=obj_fun, x=x, z=z, g=g, store_trace=options.store_trace)
     end
     return sol
 end
@@ -161,27 +161,27 @@ Bregman result structure
 """
 
 mutable struct BregmanIterations
-    sol
-    dual
-    gradient
-    misfit
-    objective
-    f_trace
-    o_trace
+    x
+    z
+    g
+    ϕ
+    residual
+    ϕ_trace
+    r_trace
     x_trace
     z_trace
 end
 
-function update!(r::BregmanIterations; sol=nothing, dual=nothing, misfit=nothing, objective=nothing, gradient=nothing, iter=1, store_trace=false)
-    ~isnothing(sol) && copyto!(r.sol, sol)
-    ~isnothing(dual) && copyto!(r.dual, dual)
-    ~isnothing(misfit) && (r.misfit = misfit)
-    ~isnothing(objective) && (r.objective = objective)
-    ~isnothing(gradient) && copyto!(r.gradient, gradient)
-    (~isnothing(sol) && length(r.x_trace) == iter-1 && store_trace) && (push!(r.x_trace, sol))
-    (~isnothing(dual) && length(r.z_trace) == iter-1 && store_trace) && (push!(r.z_trace, dual))
-    (~isnothing(misfit) && length(r.f_trace) == iter-1) && (push!(r.f_trace, misfit))
-    (~isnothing(objective) && length(r.o_trace) == iter-1) && (push!(r.o_trace, objective))
+function update!(r::BregmanIterations; x=nothing, z=nothing, ϕ=nothing, residual=nothing, g=nothing, iter=1, store_trace=false)
+    ~isnothing(x) && copyto!(r.x, x)
+    ~isnothing(z) && copyto!(r.z, z)
+    ~isnothing(ϕ) && (r.ϕ = ϕ)
+    ~isnothing(residual) && (r.residual = residual)
+    ~isnothing(g) && copyto!(r.g, g)
+    (~isnothing(x) && length(r.x_trace) == iter-1 && store_trace) && (push!(r.x_trace, x))
+    (~isnothing(z) && length(r.z_trace) == iter-1 && store_trace) && (push!(r.z_trace, z))
+    (~isnothing(ϕ) && length(r.ϕ_trace) == iter-1) && (push!(r.ϕ_trace, ϕ))
+    (~isnothing(residual) && length(r.r_trace) == iter-1) && (push!(r.r_trace, residual))
 end
 
 function breglog(init_x, init_z; f0=0, obj0=0)

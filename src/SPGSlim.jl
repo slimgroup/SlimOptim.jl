@@ -56,6 +56,7 @@ function spg_options(;verbose=1,optTol=1f-5,progTol=1f-7,
                       optNorm,iniStep, Int64(maxLinesearchIter))
 end
 
+
 """
     minConF_SPG(funObj, x, funProj, options)
 
@@ -73,49 +74,65 @@ Function for using Spectral Projected Gradient to solve problems of the form
 
 Adapted fromt he matlab implementation of minConf_SPG
 """
-function spg(funObj, x::Array{vDt}, funProj, options, ls=nothing) where {vDt}
-    if options.verbose > 0
-       @printf("Running SPG...\n");
-       @printf("Number of objective function to store: %d\n",options.memory);
-       @printf("Using  spectral projection : %s\n",options.useSpectral);
-       @printf("Maximum number of iterations: %d\n",options.maxIter);
-       @printf("SPG optimality tolerance: %.2e\n",options.optTol);
-       @printf("SPG progress tolerance: %.2e\n",options.progTol);
-    end
+function spg(funObj, x::AbstractArray{vDt}, funProj, options, ls=nothing) where {vDt}
+    f(x) = funObj(x)[1]
+    g!(g, x) = (g .= funObj(x)[2]; return)
+    fg!(g, x) = ((obj, g0) = funObj(x); g .= g0; return obj)
+    return spg(f, g!, fg!, x, funProj, options, ls)
+end
+
+"""
+minConF_SPG(f, g!, fg!, x, funProj, options)
+
+Function for using Spectral Projected Gradient to solve problems of the form
+min funObj(x) s.t. x in C
+
+* f(x): function to minimize (returns objective only)
+* g!(x): gradient of function (returns gradient only)
+* fg!(x): objective and gradient
+* funProj(x): function that returns projection of x onto C
+* x: Initial guess
+* options: spg_options structure
+
+Notes:
+  - if the projection is expensive to compute, you can reduce the
+      number of projections by setting testOpt to 0 in the options
+
+Adapted fromt he matlab implementation of minConf_SPG
+"""
+function spg(f::Function, g!::Function, fg!::Function, x::AbstractArray{vDt}, funProj, options, ls=nothing) where {vDt}
     # Initialize local variables
     nVars = length(x)
-    options.memory > 1 && (old_fvals = -Inf*ones(vDt, options.memory))
+    options.memory > 1 && (old_ϕvals = -Inf*ones(vDt, options.memory))
     d = zeros(vDt, nVars)
+    g = zeros(vDt, nVars)
+    optCond = 0
     # Result structure
     sol = result(x)
     x_best = x
 
     # Setup Function to track number of evaluations
     projection(x) = (sol.n_project +=1; return funProj(x))
-    objective(x) = (sol.n_feval +=1 ; return funObj(x))
+    obj(x) = (sol.n_ϕeval +=1 ; return f(x))
+    grad!(g, x) = (sol.n_geval +=1 ; return g!(g, x))
+    objgrad!(g, x) = (sol.n_ϕeval +=1; sol.n_geval +=1 ; return fg!(g, x))
+
     # Line search function
     isnothing(ls) && (ls = BackTracking(order=3, iterations=options.maxLinesearchIter))
     checkls(ls)
     # Evaluate Initial Point and objective function
     ~options.feasibleInit && (x = projection(x))
-    f, g = objective(x)
-    f_best = f
-    update!(sol; iter=1, misfit=f, gradient=g, sol=x, store_trace=options.store_trace)
+    ϕ = objgrad!(g, x)
+    ϕ_best = ϕ
+    update!(sol; iter=1, ϕ=ϕ, g=g, x=x, store_trace=options.store_trace)
 
     # Output Log
-    if options.verbose > 0
-        if options.testOpt
-            @printf("%10s %10s %10s %15s %15s %15s %15s\n","Iteration","FunEvals","Projections","Step Length","alpha","Function Val","Opt Cond")
-            @printf("%10d %10d %10d %15.5e %15.5e %15.5e %15.5e\n",0,0,0,0,0,f,norm(projection(x-g)-x, options.optNorm))
-        else
-            @printf("%10s %10s %10s %15s %15s %15s\n","Iteration","FunEvals","Projections","Step Length","alpha","Function Val")
-            @printf("%10d %10d %10d %15.5e %15.5e %15.5e\n",0,0,0,0,0,f)
-        end
-    end
+    options.testOpt ? optCond = norm(projection(x-g)-x, options.optNorm) : optCond = 0
+    init_log(ϕ, norm(projection(x-g)-x, options.optNorm), options)
 
     # Optionally check optimality
     if options.testOpt && options.testInit
-        if norm(projection(x-g)-x,options.optNorm) < optTol
+        if optCond < optTol
             verbose > 0 &&  @printf("First-Order Optimality Conditions Below optTol at Initial Point, norm g is %5.4f \n", norm(g))
             return
         end
@@ -127,8 +144,8 @@ function spg(funObj, x::Array{vDt}, funProj, options, ls=nothing) where {vDt}
         if i == 1 || ~options.useSpectral
             alpha = vDt(.1*norm(x, Inf)/norm(g, Inf))
         else
-            y = g - sol.gradient
-            s = x - sol.sol
+            y = g - sol.g
+            s = x - sol.x
             if options.bbType == 1
                 alpha = dot(s,s)/dot(s,y)
             else
@@ -138,7 +155,7 @@ function spg(funObj, x::Array{vDt}, funProj, options, ls=nothing) where {vDt}
                 alpha = 1
             end
         end
-        i>1 && update!(sol; iter=i, misfit=f, sol=x, gradient=g, store_trace=options.store_trace)
+        i>1 && update!(sol; iter=i, ϕ=ϕ, x=x, g=g, store_trace=options.store_trace)
         @. d = -vDt(alpha).*g
 
         # Compute Projected Step
@@ -156,42 +173,69 @@ function spg(funObj, x::Array{vDt}, funProj, options, ls=nothing) where {vDt}
 
         # Compute reference function for non-monotone condition
         if options.memory == 1
-            funRef = f
+            ϕ_ref = ϕ
         else
-            i <= options.memory ? old_fvals[i] = f : old_fvals = [old_fvals[2:end];f]
-            funRef = maximum(old_fvals)
+            i <= options.memory ? old_ϕvals[i] = ϕ : old_ϕvals = [old_ϕvals[2:end];ϕ]
+            ϕ_ref = maximum(old_ϕvals)
         end
 
         # Line search
-        ϕ(α) = (sol.n_feval +=1 ; return funObj(sol.sol + α * d)[1])
-        t, f = ls(ϕ, t, funRef, gtd)
-        x .= projection(sol.sol + t*d)
-        f, g = objective(x)
+        t, ϕ = linesearch(ls, sol, d, obj, grad!, objgrad!, t, ϕ_ref, gtd, g)
+        x .= projection(sol.x + t*d)
+        grad!(g, x)
 
         # Check conditioning
         if options.testOpt
             optCond = norm(projection(x-g)-x, options.optNorm)
         end
         # Check if terminate
-        i>1 && (terminate(options, norm(projection(x-g)-x, options.optNorm), t, d, f, sol.misfit) && break)
+        i>1 && (terminate(options, norm(projection(x-g)-x, options.optNorm), t, d, ϕ, sol.ϕ) && break)
 
         # Take step
-        if f < f_best
+        if ϕ < ϕ_best
             x_best = x
-            f_best = f
+            ϕ_best = ϕ
         end
 
         # Output Log
-        if options.verbose > 0
-            if options.testOpt
-                @printf("%10d %10d %10d %15.5e %15.5e %15.5e %15.5e\n",i,sol.n_feval,sol.n_project,t,alpha,f,optCond)
-            else
-                @printf("%10d %10d %10d %15.5e %15.5e %15.5e\n",i,sol.n_feval,sol.n_project,t,alpha,f)
-            end
-        end
+        iter_log(i, sol, t, alpha, ϕ, optCond, options)
     end
 
     # Restore best iteration
-    update!(sol; iter=options.maxIter+1, misfit=f_best, sol=x_best, gradient=g, store_trace=options.store_trace)
+    update!(sol; iter=options.maxIter+1, ϕ=ϕ_best, x=x_best, g=g, store_trace=options.store_trace)
     return sol
+end
+
+
+"""
+Loging utilities
+"""
+function init_log(ϕ, optCond, options)
+    if options.verbose > 0
+        @printf("Running SPG...\n");
+        @printf("Number of objective function to store: %d\n",options.memory);
+        @printf("Using  spectral projection : %s\n",options.useSpectral);
+        @printf("Maximum number of iterations: %d\n",options.maxIter);
+        @printf("SPG optimality tolerance: %.2e\n",options.optTol);
+        @printf("SPG progress tolerance: %.2e\n",options.progTol);
+     end
+    if options.verbose > 0
+        if options.testOpt
+            @printf("%10s %10s %10s %10s %15s %15s %15s %15s\n","Iteration","FunEvals", "GradEvals","Projections","Step Length","alpha","Function Val","Opt Cond")
+            @printf("%10d %10d %10d %10d %15.5e %15.5e %15.5e %15.5e\n",0,0,0,0,0,0,ϕ,optCond)
+        else
+            @printf("%10s %10s %10s %10s %15s %15s %15s\n","Iteration","FunEvals","GradEvals","Projections","Step Length","alpha","Function Val")
+            @printf("%10d %10d %10d %10d %15.5e %15.5e %15.5e\n",0,0,0,0,0,0,ϕ)
+        end
+    end
+end
+
+function iter_log(i, sol, t, alpha, ϕ, optCond, options)
+    if options.verbose > 0
+        if options.testOpt
+            @printf("%10d %10d %10d %10d %15.5e %15.5e %15.5e %15.5e\n",i,sol.n_ϕeval,sol.n_geval,sol.n_project,t,alpha,ϕ,optCond)
+        else
+            @printf("%10d %10d %10d %10d %15.5e %15.5e %15.5e\n",i,sol.n_ϕeval,sol.n_geval,sol.n_project,t,alpha,ϕ)
+        end
+    end
 end

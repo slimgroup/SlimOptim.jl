@@ -20,16 +20,16 @@ end
 opt = bregman_options(maxIter=200, progTol=0, verbose=2)
 sol = bregman(obj, 1 .+ randn(N2), opt)
 
-@show sol.sol[inds]
+@show sol.x[inds]
 @show x0[inds]
-@show sol.sol[ninds]
+@show sol.x[ninds]
 @show x0[ninds]
 
-part_n = i -> norm(sol.sol[i] - x0[i])/(norm(x0[i]) + norm(sol.sol[i]) + eps(Float64))
-part_nz = i -> norm(sol.sol[i], 1)/N2
+part_n = i -> norm(sol.x[i] - x0[i])/(norm(x0[i]) + norm(sol.x[i]) + eps(Float64))
+part_nz = i -> norm(sol.x[i], 1)/N2
 @show part_nz(inds)
 @show part_n(ninds)
 
 @test part_nz(inds) < 1f-1
 @test part_n(ninds) < 1f-1
-@test sol.misfit/sol.f_trace[1] < 1f-1
+@test sol.ϕ/sol.ϕ_trace[1] < 1f-1

@@ -1,25 +1,26 @@
 export isLegal, lbfgsUpdate, lbfgsHvFunc2, ssbin, solveSubProblem, subHv, result, soft_thresholding
 
 mutable struct result
-    sol
-    gradient
-    misfit
-    f_trace
+    x
+    g
+    ϕ
+    ϕ_trace
     x_trace
     n_project
-    n_feval
+    n_ϕeval
+    n_geval
 end
 
-function update!(r::result; sol=nothing, misfit=nothing, gradient=nothing, iter=1, store_trace=false)
-    ~isnothing(sol) && copyto!(r.sol, sol)
-    ~isnothing(misfit) && (r.misfit = misfit)
-    ~isnothing(gradient) && copyto!(r.gradient, gradient)
-    (~isnothing(sol) && length(r.x_trace) == iter-1 && store_trace) && (push!(r.x_trace, sol))
-    (~isnothing(misfit) && length(r.f_trace) == iter-1) && (push!(r.f_trace, misfit))
+function update!(r::result; x=nothing, ϕ=nothing, g=nothing, iter=1, store_trace=false)
+    ~isnothing(x) && copyto!(r.x, x)
+    ~isnothing(ϕ) && (r.ϕ = ϕ)
+    ~isnothing(g) && copyto!(r.g, g)
+    (~isnothing(x) && length(r.x_trace) == iter-1 && store_trace) && (push!(r.x_trace, x))
+    (~isnothing(ϕ) && length(r.ϕ_trace) == iter-1) && (push!(r.ϕ_trace, ϕ))
 end
 
-function result(init_x; f0=0, feval=0)
-    return result(init_x, 0.0f0*init_x, f0, Vector{}(), Vector{}(), 0, feval)
+function result(init_x; ϕ0=0, ϕeval=0, δϕeval=0)
+    return result(init_x, 0.0f0*init_x, ϕ0, Vector{}(), Vector{}(), 0, ϕeval, δϕeval)
 end
 
 function isLegal(v)
@@ -28,8 +29,8 @@ function isLegal(v)
 end
 
 
-function terminate(options, optCond, t, d, f, f_old)
-    ~isLegal(f) && return true
+function terminate(options, optCond, t, d, ϕ, ϕ_old)
+    ~isLegal(ϕ) && return true
     # Check optimality
     if optCond < options.optTol
         options.verbose >= 1 &&  @printf("First-Order Optimality Conditions Below optTol\n")
@@ -41,7 +42,7 @@ function terminate(options, optCond, t, d, f, f_old)
         return true
     end
 
-    if abs.(f-f_old) < options.progTol
+    if abs.(ϕ-ϕ_old) < options.progTol
         options.verbose >= 1 && @printf("Function value changing by less than progTol\n")
         return true
     end
@@ -136,7 +137,7 @@ function solveSubProblem(x, g, H, funProj, options, x_init)
 # Uses SPG to solve for projected quasi-Newton direction
     funObj(p) = subHv(p, x, g, H)
     sol = spg(funObj, x_init, funProj, options)
-    return sol.sol 
+    return sol.x 
 end
 
 function subHv(p,x,g,HvFunc)
