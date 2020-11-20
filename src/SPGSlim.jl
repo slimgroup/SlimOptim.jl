@@ -4,7 +4,6 @@ mutable struct SPG_params
     progTol
     maxIter
     suffDec
-    interp
     memory
     useSpectral
     curvilinear
@@ -19,7 +18,7 @@ mutable struct SPG_params
 end
 """
     spg_options(;verbose=3,optTol=1f-5,progTol=1f-7,
-                maxIter=20,suffDec=1f-4,interp=0,memory=2,
+                maxIter=20,suffDec=1f-4,memory=2,
                 useSpectral=true,curvilinear=false,
                 feasibleInit=false,testOpt=true,
                 bbType=true,testInit=false, store_trace=false,
@@ -32,7 +31,6 @@ Options structure for Spectral Project Gradient algorithm.
     * progTol: tolerance used to check for lack of progress (default: 1e-9)
     * maxIter: maximum number of iterations (default: 20)
     * suffDec: sufficient decrease parameter in Armijo condition (default: 1e-4)
-    * interp: type of interpolation (0: step-size halving, 2: cubic)
     * memory: number of steps to look back in non-monotone Armijo condition
     * useSpectral: use spectral scaling of gradient direction (default: 1)
     * curvilinear: backtrack along projection Arc (default: 0)
@@ -46,13 +44,13 @@ Options structure for Spectral Project Gradient algorithm.
     * maxLinesearchIter: Maximum number of line search iteration (default: 20)
 """
 function spg_options(;verbose=1,optTol=1f-5,progTol=1f-7,
-                     maxIter=20,suffDec=1f-4,interp=0,memory=2,
+                     maxIter=20,suffDec=1f-4,memory=2,
                      useSpectral=true,curvilinear=false,
                      feasibleInit=false,testOpt=true,
                      bbType=1,testInit=false, store_trace=false,
                      optNorm=Inf,iniStep=1f0, maxLinesearchIter=20)
     return SPG_params(verbose,optTol,progTol,
-                      Int64(maxIter),suffDec,interp,memory,
+                      Int64(maxIter),suffDec,memory,
                       useSpectral,curvilinear,
                       feasibleInit,testOpt, bbType,testInit, store_trace,
                       optNorm,iniStep, Int64(maxLinesearchIter))
@@ -75,7 +73,7 @@ Function for using Spectral Projected Gradient to solve problems of the form
 
 Adapted fromt he matlab implementation of minConf_SPG
 """
-function spg(funObj, x::Array{vDt}, funProj, options) where {vDt}
+function spg(funObj, x::Array{vDt}, funProj, options, ls=nothing) where {vDt}
     if options.verbose > 0
        @printf("Running SPG...\n");
        @printf("Number of objective function to store: %d\n",options.memory);
@@ -95,8 +93,9 @@ function spg(funObj, x::Array{vDt}, funProj, options) where {vDt}
     # Setup Function to track number of evaluations
     projection(x) = (sol.n_project +=1; return funProj(x))
     objective(x) = (sol.n_feval +=1 ; return funObj(x))
-    ls = BackTracking(order=3, iterations=options.maxLinesearchIter)
-
+    # Line search function
+    isnothing(ls) && (ls = BackTracking(order=3, iterations=options.maxLinesearchIter))
+    checkls(ls)
     # Evaluate Initial Point and objective function
     ~options.feasibleInit && (x = projection(x))
     f, g = objective(x)

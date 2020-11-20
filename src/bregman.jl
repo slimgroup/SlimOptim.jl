@@ -3,7 +3,6 @@ mutable struct BregmanParams
     progTol
     maxIter
     store_trace
-    linesearch
     antichatter
     quantile
 end
@@ -19,14 +18,12 @@ Options structure for the bregman iteration algorithm
     * progTol: tolerance used to check for lack of progress (default: 1e-9)
     * maxIter: maximum number of iterations (default: 20)
     * store_trace: Whether to store the trace/history of x (default: false)
-    * linesearch: Whether to do linesearch (backtracking) at each iteration
     * antichatter: Whether to use anti-chatter step length correction
     * quantile: Thresholding level as quantile value, (default=.95)
 """
 
-bregman_options(;verbose=1, progTol=1e-8, maxIter=20, store_trace=false,
-                linesearch=false, antichatter=true, quantile=.95) =
-                BregmanParams(verbose, progTol, maxIter, store_trace, linesearch, antichatter, quantile)
+bregman_options(;verbose=1, progTol=1e-8, maxIter=20, store_trace=false, antichatter=true, quantile=.95) =
+                BregmanParams(verbose, progTol, maxIter, store_trace, antichatter, quantile)
 
 """
     bregman(A, TD, x, b, options)
@@ -91,7 +88,7 @@ function bregman(funobj::Function, x::AbstractArray{vDt}, options, TD=nothing) w
 
     # Output Log
     if options.verbose > λ
-        @printf("%10s %10s %15s %15s %15s\n","Iteration","Step Length", "Bregman objective", "||A*x - b||_2^2", "λ")
+        @printf("%10s %15s %15s %15s %5s\n","Iteration","Step Length", "Bregman objective", "||A*x - b||_2^2", "λ")
     end
 
     # Iterations

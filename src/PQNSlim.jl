@@ -64,7 +64,7 @@ gradient algorithm
 Notes:
     Adapted fromt he matlab implementation of minConf_PQN
 """
-function pqn(funObj, x::Array{vDt}, funProj, options) where {vDt}
+function pqn(funObj, x::Array{vDt}, funProj, options, ls=nothing) where {vDt}
     nVars = length(x)
     spg_opt = spg_options(optTol=options.SPGoptTol,progTol=options.SPGprogTol, maxIter=options.SPGiters,
                           testOpt=options.SPGtestOpt, feasibleInit=~options.bbInit, verbose=0)
@@ -88,8 +88,9 @@ function pqn(funObj, x::Array{vDt}, funProj, options) where {vDt}
     # Setup Function to track number of evaluations
     projection(x) = (sol.n_project +=1; return funProj(x))
     objective(x) = (sol.n_feval +=1 ; return funObj(x))
-    ls = BackTracking(order=3, iterations=options.maxLinesearchIter)
-
+    # Line search function
+    isnothing(ls) && (ls = BackTracking(order=3, iterations=options.maxLinesearchIter))
+    checkls(ls)
     # Project initial parameter vector
     x = projection(x)
     # Evaluate initial parameters

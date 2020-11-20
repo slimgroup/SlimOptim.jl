@@ -16,4 +16,10 @@ include("PQNSlim.jl")   # minConf_PQN
 include("bregman.jl")   # minConf_PQN
 include("utils.jl") # common functions
 
+
+function checkls(ls) 
+    is_ls = (typeof(ls) <: Union{BackTracking, HagerZhang, Static, MoreThuente, StrongWolfe})
+    !is_ls && throw(ArgumentError("Unrecognized linsearch input, only LineSearches.jl's[BackTracking, HagerZhang, Static, MoreThuente, StrongWolfe] are supported"))
+end
+
 end # module

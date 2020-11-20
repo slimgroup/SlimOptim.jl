@@ -57,7 +57,7 @@ for j=1:niterations
     function ϕ(α) 
         F0.model.m .= proj(model0.m .+ α * direction)
         misfit = .5*norm(F0[i]*q[i] - d_obs[i])
-        println(misfit2)
+        println(misfit)
         return misfit
     end
     step = ls(ϕ, 1f0, fval, dot(gradient, direction))

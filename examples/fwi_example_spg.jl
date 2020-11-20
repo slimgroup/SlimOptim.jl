@@ -2,12 +2,14 @@
 # Author: Philipp Witte, pwitte@eoas.ubc.ca
 # Date: December 2017
 #
+# Install JUDI if not installed
 
-using Statistics, Random, LinearAlgebra, PyPlot
-using JUDI.TimeModeling, JUDI.SLIM_optim, HDF5, SegyIO
+using LinearAlgebra, PyPlot, SlimOptim
+using JUDI, JUDI.TimeModeling, HDF5, SegyIO
 
 # Load starting model
-n,d,o,m0 = read(h5open("../../data/overthrust_model.h5","r"), "n", "d", "o", "m0")
+path = dirname(pathof(JUDI))
+n,d,o,m0 = read(h5open(path*"/../data/overthrust_model.h5","r"), "n", "d", "o", "m0")
 model0 = Model((n[1],n[2]), (d[1],d[2]), (o[1],o[2]), m0)
 
 # Bound constraints
@@ -22,7 +24,7 @@ mmin = vec((1f0 ./ vmax).^2)
 mmax = vec((1f0 ./ vmin).^2)
 
 # Load data
-block = segy_read("../../data/overthrust_shot_records.segy")
+block = segy_read(path*"/../data/overthrust_shot_records.segy")
 d_obs = judiVector(block)
 
 # Set up wavelet
@@ -56,7 +58,7 @@ ProjBound(x) = median([mmin x mmax]; dims=2)
 
 # FWI with SPG
 options = spg_options(verbose=3, maxIter=fevals, memory=3)
-sol = minConf_SPG(objective_function, vec(model0.m), ProjBound, options)
+sol = spg(objective_function, vec(model0.m), ProjBound, options)
 
 # Plot result
 imshow(reshape(sqrt.(1f0 ./ sol.sol), model0.n)', extent=[0, 10, 3, 0])
