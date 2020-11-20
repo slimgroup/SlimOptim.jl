@@ -56,7 +56,12 @@ for j=1:niterations
     # linesearch
     function ϕ(α) 
         F0.model.m .= proj(model0.m .+ α * direction)
+<<<<<<< HEAD
         misfit = .5*norm(F0[i]*q[i] - d_obs[i])^2
+=======
+        misfit = .5*norm(F0[i]*q[i] - d_obs[i])
+        println(misfit)
+>>>>>>> 7c63842... fixed bugs
         return misfit
     end
     step, fval = ls(ϕ, 1f0, fval, dot(gradient, direction))
