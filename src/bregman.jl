@@ -75,10 +75,10 @@ function bregman(funobj::Function, x::AbstractArray{vDt}, options, TD=nothing) w
     end
     isnothing(TD) && (TD = Matrix{vDt}(I, length(x), length(x)))
     # Intitalize variables
-    z = zeros(vDt, size(TD, 1))
-    d = zeros(vDt, size(TD, 1))
+    z = TD*x
+    d = similar(z)
     if options.antichatter
-        tk = zeros(vDt, size(z, 1))
+        tk = similar(z)
     end
 
     # Result structure
@@ -101,16 +101,16 @@ function bregman(funobj::Function, x::AbstractArray{vDt}, options, TD=nothing) w
 
         # Anti-chatter
         if options.antichatter
-            tk[:] .+= sign.(d)
+            @. tk = tk + sign.(g)
             # Chatter correction
             inds_z = findall(abs.(z) .> λ)
             mul!(d, d, t)
-            d[inds_z] .*= abs.(tk[inds_z])/i
+            d[:] .*= abs.(tk[:])/i
         end
         # Update z variable
         @. z = z + d
         # Get λ at first iteration
-        i%10 == 1  && (λ = vDt(quantile(abs.(z), options.quantile)))
+        i%10 == 1 && (λ = vDt(quantile(abs.(z), options.quantile)))
         # Update x
         x = TD'*soft_thresholding(z, λ)
 
@@ -119,40 +119,30 @@ function bregman(funobj::Function, x::AbstractArray{vDt}, options, TD=nothing) w
             @printf("%10d %15.5e %15.5e %15.5e %15.5e \n",i, t, obj_fun, f, λ)
         end
         norm(x - sol.x) < options.progTol && (@printf("Step size below progTol\n"); break;)
-        update!(sol; iter=i, ϕ=f, residual=obj_fun, x=x, z=z, g=g, store_trace=options.store_trace)
+        update!(sol; iter=i, ϕ=obj_fun, residual=f, x=x, z=z, g=g, store_trace=options.store_trace)
     end
     return sol
 end
 
 # Utility functions
 """
-Quantile from Statistics.jl since nly need this one
+Simplified Quantile from Statistics.jl since we only need simplified version of it.
 """
-function quantile(v::AbstractVector, p::Real; alpha::Real=1.0, beta::Real=alpha)
+function quantile(u::AbstractVector, p::Real)
     0 <= p <= 1 || throw(ArgumentError("input probability out of [0,1] range"))
-    0 <= alpha <= 1 || throw(ArgumentError("alpha parameter out of [0,1] range"))
-    0 <= beta <= 1 || throw(ArgumentError("beta parameter out of [0,1] range"))
+    n = length(u)
+    v = sort(u; alg=Base.QuickSort)
 
-    n = length(v)
-    
-    m = alpha + p * (one(alpha) - alpha - beta)
+    m = 1 - p
     aleph = n*p + oftype(p, m)
     j = clamp(trunc(Int, aleph), 1, n-1)
     γ = clamp(aleph - j, 0, 1)
 
-    if n == 1
-        a = v[1]
-        b = v[1]
-    else
-        a = v[j]
-        b = v[j + 1]
-    end
-    
-    if isfinite(a) && isfinite(b)
-        return a + γ*(b-a)
-    else
-        return (1-γ)*a + γ*b
-    end
+    n == 1 ? a = v[1] : a = v[j]
+    n == 1 ? b = v[1] : b = v[j+1]
+
+    (isfinite(a) && isfinite(b)) ? q = a + γ*(b-a) : q = (1-γ)*a + γ*b
+    return q
 end
 
 

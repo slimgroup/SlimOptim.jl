@@ -38,7 +38,7 @@ Options structure for Spectral Project Gradient algorithm.
     * SPGtestOpt: Whether to check for optimality in SPG (default: false)
     * maxLinesearchIter: Maximum number of line search iteration (default: 20)
 """
-function pqn_options(;verbose=0, optTol=1f-5, progTol=1f-7,
+function pqn_options(;verbose=1, optTol=1f-5, progTol=1f-7,
                      maxIter=20, suffDec=1f-4, corrections=10, adjustStep=false,
                      bbInit=true, store_trace=false, SPGoptTol=1f-6, SPGprogTol=1f-7,
                      SPGiters=10, SPGtestOpt=false, maxLinesearchIter=20)

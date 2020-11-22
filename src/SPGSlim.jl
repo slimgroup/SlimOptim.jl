@@ -128,7 +128,7 @@ function spg(f::Function, g!::Function, fg!::Function, x::AbstractArray{vDt}, fu
 
     # Output Log
     options.testOpt ? optCond = norm(projection(x-g)-x, options.optNorm) : optCond = 0
-    init_log(ϕ, norm(projection(x-g)-x, options.optNorm), options)
+    init_log(ϕ, norm(projection(x-g)-x, options.optNorm), options)  
 
     # Optionally check optimality
     if options.testOpt && options.testInit

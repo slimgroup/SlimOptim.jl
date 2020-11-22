@@ -17,7 +17,7 @@ function obj(x)
     return fun, grad
 end
 
-opt = bregman_options(maxIter=200, progTol=0, verbose=2)
+opt = bregman_options(maxIter=200, progTol=0, verbose=2, quantile=.8)
 sol = bregman(obj, 1 .+ randn(N2), opt)
 
 @show sol.x[inds]
