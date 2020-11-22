@@ -1,6 +1,6 @@
 # SlimOptim
 
-PAckage of optimizations functions forl arge scale inversion. In these implementations, the algorithm itself is 
+Package of optimizations functions forl arge scale inversion. In these implementations, the algorithm itself is 
 not optimized fot speed as this oackage is designed for inverse problems where the function evaluation is the main cost (~hours for a single function + gradient evaluation) making the algorithm speed minimal.
 
 # Algorithms
@@ -22,8 +22,10 @@ The usage for SPG and PQN is the same with some small differences in the options
 This package implements adapatations of `minConf_SPG` and `minConf_PQN` from the matlab implementation of M. Schmidt [[1]].
 
 ```
-M. Schmidt, E. van den Berg, M. Friedlander, K. Murphy. Optimizing Costly Functions with Simple Constraints: A Limited-Memory Projected Quasi-Newton Algorithm. AISTATS, 2009.
-M. Schmidt. minConf: projection methods for optimization with simple constraints in Matlab. http://www.cs.ubc.ca/~schmidtm/Software/minConf.html, 2008.
+* M. Schmidt, E. van den Berg, M. Friedlander, K. Murphy. Optimizing Costly Functions with Simple Constraints: A Limited-Memory Projected Quasi-Newton Algorithm. AISTATS, 2009.
+* M. Schmidt. minConf: projection methods for optimization with simple constraints in Matlab. http://www.cs.ubc.ca/~schmidtm/Software/minConf.html, 2008.
+* Lorenz
+* Mengmeng?
 ```
 
 [1]:https://www.cs.ubc.ca/~schmidtm/Software/minConf.html
