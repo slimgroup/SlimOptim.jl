@@ -32,7 +32,7 @@ wavelet = ricker_wavelet(src_geometry.t[1],src_geometry.dt[1],0.008f0)  # 8 Hz w
 q = judiVector(src_geometry,wavelet)
 
 ############################### FWI ###########################################
-F0 = judiModeling(model0, src_geometry, d_obs.geometry)
+F0 = judiModeling(deepcopy(model0), src_geometry, d_obs.geometry)
 
 # Optimization parameters
 niterations = 10
@@ -41,11 +41,10 @@ fhistory_SGD = zeros(Float32,niterations)
 
 # Projection operator for bound constraints
 proj(x) = reshape(median([vec(mmin) vec(x) vec(mmax)]; dims=2),model0.n)
-
 ls = BackTracking(order=3, iterations=10)
+
 # Main loop
 for j=1:niterations
-
     # get fwi objective function value and gradient
     i = randperm(d_obs.nsrc)[1:batchsize]
     fval, gradient = fwi_objective(model0,q[i],d_obs[i])
@@ -56,12 +55,7 @@ for j=1:niterations
     # linesearch
     function ϕ(α) 
         F0.model.m .= proj(model0.m .+ α * direction)
-<<<<<<< HEAD
         misfit = .5*norm(F0[i]*q[i] - d_obs[i])^2
-=======
-        misfit = .5*norm(F0[i]*q[i] - d_obs[i])
-        println(misfit)
->>>>>>> 7c63842... fixed bugs
         return misfit
     end
     step, fval = ls(ϕ, 1f0, fval, dot(gradient, direction))

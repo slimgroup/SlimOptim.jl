@@ -58,7 +58,7 @@ end
 
 
 """
-    minConF_SPG(funObj, x, funProj, options)
+    spg(funObj, x, funProj, options)
 
 Function for using Spectral Projected Gradient to solve problems of the form
   min funObj(x) s.t. x in C
@@ -82,14 +82,14 @@ function spg(funObj, x::AbstractArray{vDt}, funProj, options, ls=nothing) where 
 end
 
 """
-minConF_SPG(f, g!, fg!, x, funProj, options)
+    spg(f, g!, fg!, x, funProj, options)
 
 Function for using Spectral Projected Gradient to solve problems of the form
 min funObj(x) s.t. x in C
 
 * f(x): function to minimize (returns objective only)
-* g!(x): gradient of function (returns gradient only)
-* fg!(x): objective and gradient
+* g!(g, x): gradient of function (in place)
+* fg!(g, x): objective and gradient (in place)
 * funProj(x): function that returns projection of x onto C
 * x: Initial guess
 * options: spg_options structure
@@ -128,7 +128,7 @@ function spg(f::Function, g!::Function, fg!::Function, x::AbstractArray{vDt}, fu
 
     # Output Log
     options.testOpt ? optCond = norm(projection(x-g)-x, options.optNorm) : optCond = 0
-    init_log(ϕ, norm(projection(x-g)-x, options.optNorm), options)
+    init_log(ϕ, norm(projection(x-g)-x, options.optNorm), options)  
 
     # Optionally check optimality
     if options.testOpt && options.testInit

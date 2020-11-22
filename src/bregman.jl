@@ -5,25 +5,27 @@ mutable struct BregmanParams
     store_trace
     antichatter
     quantile
+    alpha
 end
 
 """
     bregman_options(;verbose=1, optTol=1e-6, progTol=1e-8, maxIter=20
-                    store_trace=false, linesearch=false)
+                    store_trace=false, linesearch=false, alpha=.25)
 
 Options structure for the bregman iteration algorithm
 
+# Arguments
+
     * verbose: level of verbosity (0: no output, 1: final, 2: iter (default), 3: debug)
-    * optTol: tolerance used to check for optimality (default: 1e-5)
     * progTol: tolerance used to check for lack of progress (default: 1e-9)
     * maxIter: maximum number of iterations (default: 20)
     * store_trace: Whether to store the trace/history of x (default: false)
     * antichatter: Whether to use anti-chatter step length correction
-    * quantile: Thresholding level as quantile value, (default=.95)
+    * quantile: Thresholding level as quantile value, (default=.95 i.e thresholds 95% of the vector)
+    * alpha: Strong convexity modulus. (step length is α*||r||/||g||)
 """
-
-bregman_options(;verbose=1, progTol=1e-8, maxIter=20, store_trace=false, antichatter=true, quantile=.95) =
-                BregmanParams(verbose, progTol, maxIter, store_trace, antichatter, quantile)
+bregman_options(;verbose=1, progTol=1e-8, maxIter=20, store_trace=false, antichatter=true, quantile=.95, alpha=.25) =
+                BregmanParams(verbose, progTol, maxIter, store_trace, antichatter, quantile, alpha)
 
 """
     bregman(A, TD, x, b, options)
@@ -33,12 +35,14 @@ Linearized bregman iteration for the system
     ||TD*x||_1 + λ ||TD*x||_2   s.t A*x = b
 
 For example, for sparsity promoting denoising (i.e LSRTM)
+
+# Arguments
+
     * TD: curvelet transform
     * A: Forward operator (J or preconditioned J for LSRTM)
     * b: observed data
     * x: Initial guess
 """
-
 function bregman(A, TD, x::Array{vDt}, b, options) where {vDt}
     # residual function wrapper
     function obj(x)
@@ -64,7 +68,6 @@ For example, for sparsity promoting denoising (i.e LSRTM)
     * b: observed data
     * x: Initial guess
 """
-
 function bregman(funobj::Function, x::AbstractArray{vDt}, options, TD=nothing) where {vDt}
     # Output Parameter Settings
     if options.verbose > 0
@@ -75,10 +78,10 @@ function bregman(funobj::Function, x::AbstractArray{vDt}, options, TD=nothing) w
     end
     isnothing(TD) && (TD = Matrix{vDt}(I, length(x), length(x)))
     # Intitalize variables
-    z = zeros(vDt, size(TD, 1))
-    d = zeros(vDt, size(TD, 1))
+    z = TD*x
+    d = similar(z)
     if options.antichatter
-        tk = zeros(vDt, size(z, 1))
+        tk = similar(z)
     end
 
     # Result structure
@@ -97,20 +100,20 @@ function bregman(funobj::Function, x::AbstractArray{vDt}, options, TD=nothing) w
         # Preconditionned ipdate direction
         d .= -TD*g
         # Step length
-        t = vDt(.5*f/norm(d)^2)
+        t = vDt(options.alpha*f/norm(d)^2)
 
         # Anti-chatter
         if options.antichatter
-            tk[:] .+= sign.(d)
+            @. tk = tk + sign.(g)
             # Chatter correction
             inds_z = findall(abs.(z) .> λ)
             mul!(d, d, t)
-            d[inds_z] .*= abs.(tk[inds_z])/i
+            d[:] .*= abs.(tk[:])/i
         end
         # Update z variable
         @. z = z + d
         # Get λ at first iteration
-        i%10 == 1  && (λ = vDt(quantile(abs.(z), options.quantile)))
+        i%10 == 1 && (λ = vDt(quantile(abs.(z), options.quantile)))
         # Update x
         x = TD'*soft_thresholding(z, λ)
 
@@ -119,47 +122,36 @@ function bregman(funobj::Function, x::AbstractArray{vDt}, options, TD=nothing) w
             @printf("%10d %15.5e %15.5e %15.5e %15.5e \n",i, t, obj_fun, f, λ)
         end
         norm(x - sol.x) < options.progTol && (@printf("Step size below progTol\n"); break;)
-        update!(sol; iter=i, ϕ=f, residual=obj_fun, x=x, z=z, g=g, store_trace=options.store_trace)
+        update!(sol; iter=i, ϕ=obj_fun, residual=f, x=x, z=z, g=g, store_trace=options.store_trace)
     end
     return sol
 end
 
 # Utility functions
 """
-Quantile from Statistics.jl since nly need this one
+Simplified Quantile from Statistics.jl since we only need simplified version of it.
 """
-function quantile(v::AbstractVector, p::Real; alpha::Real=1.0, beta::Real=alpha)
+function quantile(u::AbstractVector, p::Real)
     0 <= p <= 1 || throw(ArgumentError("input probability out of [0,1] range"))
-    0 <= alpha <= 1 || throw(ArgumentError("alpha parameter out of [0,1] range"))
-    0 <= beta <= 1 || throw(ArgumentError("beta parameter out of [0,1] range"))
+    n = length(u)
+    v = sort(u; alg=Base.QuickSort)
 
-    n = length(v)
-    
-    m = alpha + p * (one(alpha) - alpha - beta)
+    m = 1 - p
     aleph = n*p + oftype(p, m)
     j = clamp(trunc(Int, aleph), 1, n-1)
     γ = clamp(aleph - j, 0, 1)
 
-    if n == 1
-        a = v[1]
-        b = v[1]
-    else
-        a = v[j]
-        b = v[j + 1]
-    end
-    
-    if isfinite(a) && isfinite(b)
-        return a + γ*(b-a)
-    else
-        return (1-γ)*a + γ*b
-    end
+    n == 1 ? a = v[1] : a = v[j]
+    n == 1 ? b = v[1] : b = v[j+1]
+
+    (isfinite(a) && isfinite(b)) ? q = a + γ*(b-a) : q = (1-γ)*a + γ*b
+    return q
 end
 
 
 """
 Bregman result structure
 """
-
 mutable struct BregmanIterations
     x
     z

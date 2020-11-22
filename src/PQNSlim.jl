@@ -38,7 +38,7 @@ Options structure for Spectral Project Gradient algorithm.
     * SPGtestOpt: Whether to check for optimality in SPG (default: false)
     * maxLinesearchIter: Maximum number of line search iteration (default: 20)
 """
-function pqn_options(;verbose=0, optTol=1f-5, progTol=1f-7,
+function pqn_options(;verbose=1, optTol=1f-5, progTol=1f-7,
                      maxIter=20, suffDec=1f-4, corrections=10, adjustStep=false,
                      bbInit=true, store_trace=false, SPGoptTol=1f-6, SPGprogTol=1f-7,
                      SPGiters=10, SPGtestOpt=false, maxLinesearchIter=20)
@@ -48,7 +48,7 @@ function pqn_options(;verbose=0, optTol=1f-5, progTol=1f-7,
 end
 
 """
-    minConf_PQN(objective, projection, x,options)
+    pqn(objective, projection, x,options)
 
 Function for using a limited-memory projected quasi-Newton to solve problems of the form
   min objective(x) s.t. x in C
@@ -72,17 +72,17 @@ function pqn(funObj, x::AbstractArray{vDt}, funProj, options, ls=nothing) where 
 end
 
 """
-    minConf_PQN(f, g!, fg!, x, projection,options)
+    pqn(f, g!, fg!, x, projection,options)
 
 Function for using a limited-memory projected quasi-Newton to solve problems of the form
   min objective(x) s.t. x in C
 
 The projected quasi-Newton sub-problems are solved the spectral projected
-gradient algorithm
+gradient algorithm.
 
   * f(x): function to minimize (returns objective only)
-  * g!(x): gradient of function (returns gradient only)
-  * fg!(x): objective and gradient
+  * g!(g, x): gradient of function (in place)
+  * fg!(g, x): objective and gradient (in place)
   * funProj(x): function that returns projection of x onto C
   * x: Initial guess
   * options: pqn_options structure
