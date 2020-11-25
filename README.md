@@ -44,8 +44,8 @@ This package implements adapatations of `minConf_SPG` and `minConf_PQN` from the
 ```
 * M. Schmidt, E. van den Berg, M. Friedlander, K. Murphy. Optimizing Costly Functions with Simple Constraints: A Limited-Memory Projected Quasi-Newton Algorithm. AISTATS, 2009.
 * M. Schmidt. minConf: projection methods for optimization with simple constraints in Matlab. http://www.cs.ubc.ca/~schmidtm/Software/minConf.html, 2008.
-* Lorenz
-* Mengmeng?
+* D. A. Lorenz, F. Schöpfer, and S. Wenger, The linearized Bregman method via split feasibility problems: Analysis and generalizations, SIAM Journal on Imaging Sciences, 7 (2014), pp. 1237-1262.
+* Emmanouil Daskalakis, Felix J. Herrmann, and Rachel Kuske, “Accelerating Sparse Recovery by Reducing Chatter”, SIAM Journal on Imaging Sciences, vol. 13, pp. 1211–1239, 2020
 ```
 
 [1]:https://www.cs.ubc.ca/~schmidtm/Software/minConf.html
