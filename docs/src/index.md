@@ -1,7 +1,9 @@
+# SLimOptim.jl documentation
+
 ```@contents
 ```
 
-# Line searches
+## Line searches
 
 Line search utuility function that calls [LineSearches.jl](https://github.com/JuliaNLSolvers/LineSearches.jl), this function is used for the line search at each iteration in [`spg`](@ref) and [`pqn`](@ref) and can be used by itslef as weel. For convenience the linesearches are all exported and available.
 
@@ -9,7 +11,7 @@ Line search utuility function that calls [LineSearches.jl](https://github.com/Ju
 linesearch
 ```
 
-# SPG
+## SPG
 
 Spectral Projected gradient algorithm adapted from [min_Conf](https://www.cs.ubc.ca/~schmidtm/Software/minConf.html) for constrained optimization.
 
@@ -24,7 +26,7 @@ spg_options
 ```
 
 
-# PQN
+## PQN
 
 Projected Quasi-Newton algorithm adapted from [min_Conf](https://www.cs.ubc.ca/~schmidtm/Software/minConf.html) for constrained optimization.
 
@@ -38,7 +40,7 @@ The algorithms uses the following options:
 pqn_options
 ```
 
-# Linearized bregman
+## Linearized bregman
 
 Linearized bregman iteration for split feasability problems.
 

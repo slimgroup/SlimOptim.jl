@@ -170,7 +170,7 @@ function pqn(f::Function, g!::Function, fg!::Function, x::AbstractArray{vDt}, fu
                 L[j+1:k,j] = transpose(S[:,j+1:k])*Y[:,j]
             end
             N = [S/Hdiag Y];
-            M = [S'*S/Hdiag L;transpose(L) -diagm(diag(S'*Y))]
+            M = [S'*S/Hdiag L;transpose(L) -Diagonal(diag(S'*Y))]
             HvFunc(v) = lbfgsHvFunc2(v,Hdiag,N,M)
 
             if options.bbInit || i < options.corrections/2
