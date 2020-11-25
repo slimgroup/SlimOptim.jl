@@ -25,7 +25,7 @@ Options structure for the bregman iteration algorithm
 - `alpha`: Strong convexity modulus. (step length is ``α \\frac{||r||_2^2}{||g||_2^2}``)
 
 """
-bregman_options(;verbose=1, progTol=1e-8, maxIter=20, store_trace=false, antichatter=true, quantile=.95, alpha=.25) =
+bregman_options(;verbose=1, progTol=1e-8, maxIter=20, store_trace=false, antichatter=true, quantile=.95, alpha=.5) =
                 BregmanParams(verbose, progTol, maxIter, store_trace, antichatter, quantile, alpha)
 
 """
@@ -118,7 +118,7 @@ function bregman(funobj::Function, x::AbstractArray{vDt}, options, TD=nothing) w
         # Update z variable
         @. z = z + d
         # Get λ at first iteration
-        i%10 == 1 && (λ = vDt(quantile(abs.(z), options.quantile)))
+        i == 1 && (λ = vDt(quantile(abs.(z), options.quantile)))
         # Update x
         x = TD'*soft_thresholding(z, λ)
 

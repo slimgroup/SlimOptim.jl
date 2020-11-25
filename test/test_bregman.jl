@@ -17,7 +17,7 @@ function obj(x)
     return fun, grad
 end
 
-opt = bregman_options(maxIter=200, progTol=0, verbose=2, quantile=.8)
+opt = bregman_options(maxIter=200, progTol=0, verbose=2)
 sol = bregman(obj, 1 .+ randn(N2), opt)
 
 @show sol.x[inds]
@@ -32,4 +32,4 @@ part_nz = i -> norm(sol.x[i], 1)/N2
 
 @test part_nz(inds) < 1f-1
 @test part_n(ninds) < 1f-1
-@test sol.ϕ/sol.ϕ_trace[1] < 1f-1
+@test sol.residual/sol.r_trace[1] < 1f-1

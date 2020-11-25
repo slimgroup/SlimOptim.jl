@@ -1,5 +1,3 @@
-# SlimOptim.jl Documentation
-
 ```@contents
 ```
 
