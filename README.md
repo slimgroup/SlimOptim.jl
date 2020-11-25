@@ -1,7 +1,7 @@
 # SlimOptim
 
-[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://slimgroup.github.io/SlimOptim.jl/dev)
-[![](https://img.shields.io/badge/docs-stable-blue.svg)](https://slimgroup.github.io/SlimOptim.jl/stable)
+[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://slimgroup.github.io/SlimOptim.jl/dev/)
+[![](https://img.shields.io/badge/docs-stable-blue.svg)](https://slimgroup.github.io/SlimOptim.jl/stable/)
 [![Build Status](https://github.com/slimgroup/SlimOptim.jl/workflows/CI-SLimOptim/badge.svg)](https://github.com/slimgroup/SlimOptim.jl/actions?query=workflow%3ACI-SLimOptim)
 <!-- [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3878711.svg)](https://doi.org/10.5281/zenodo.3878711) -->
 
