@@ -1,7 +1,26 @@
 # SlimOptim
 
+[![](https://img.shields.io/badge/docs-stable-blue.svg)](https://slimgroup.github.io/SlimOptim.jl/) 
+[![Build Status ](https://github.com/slimgroup/SlimGroup.jl/workflows/CI/badge.svg)](https://github.com/slimgroup/SlimGroup.jl/actions?query=workflow%3ACI-tests)
+<!-- [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3878711.svg)](https://doi.org/10.5281/zenodo.3878711) -->
+
 Package of optimizations functions forl arge scale inversion. In these implementations, the algorithm itself is 
 not optimized fot speed as this oackage is designed for inverse problems where the function evaluation is the main cost (~hours for a single function + gradient evaluation) making the algorithm speed minimal.
+
+# Installation
+
+To install this package you can either add the SLIM Registry
+
+```julia
+] registry add https://github.com/slimgroup/SLIMregistryJL.git
+] add SlimOptim
+```
+
+or directly install it by itself
+
+```julia
+] add https://github.com/slimgroup/SLIMregistryJL.git
+```
 
 # Algorithms
 

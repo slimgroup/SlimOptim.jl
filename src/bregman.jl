@@ -16,13 +16,14 @@ Options structure for the bregman iteration algorithm
 
 # Arguments
 
-    * verbose: level of verbosity (0: no output, 1: final, 2: iter (default), 3: debug)
-    * progTol: tolerance used to check for lack of progress (default: 1e-9)
-    * maxIter: maximum number of iterations (default: 20)
-    * store_trace: Whether to store the trace/history of x (default: false)
-    * antichatter: Whether to use anti-chatter step length correction
-    * quantile: Thresholding level as quantile value, (default=.95 i.e thresholds 95% of the vector)
-    * alpha: Strong convexity modulus. (step length is α*||r||/||g||)
+- `verbose`: level of verbosity (0: no output, 1: final, 2: iter (default), 3: debug)
+- `progTol`: tolerance used to check for lack of progress (default: 1e-9)
+- `maxIter`: maximum number of iterations (default: 20)
+- `store_trace`: Whether to store the trace/history of x (default: false)
+- `antichatter`: Whether to use anti-chatter step length correction
+- `quantile`: Thresholding level as quantile value, (default=.95 i.e thresholds 95% of the vector)
+- `alpha`: Strong convexity modulus. (step length is ``α \\frac{||r||_2^2}{||g||_2^2}``)
+
 """
 bregman_options(;verbose=1, progTol=1e-8, maxIter=20, store_trace=false, antichatter=true, quantile=.95, alpha=.25) =
                 BregmanParams(verbose, progTol, maxIter, store_trace, antichatter, quantile, alpha)
@@ -32,16 +33,16 @@ bregman_options(;verbose=1, progTol=1e-8, maxIter=20, store_trace=false, anticha
 
 Linearized bregman iteration for the system
 
-    ||TD*x||_1 + λ ||TD*x||_2   s.t A*x = b
+``\\frac{1}{2} ||TD \\ x||_2^2 + λ ||TD \\ x||_1  \\ \\ \\ s.t Ax = b``
 
 For example, for sparsity promoting denoising (i.e LSRTM)
 
 # Arguments
 
-    * TD: curvelet transform
-    * A: Forward operator (J or preconditioned J for LSRTM)
-    * b: observed data
-    * x: Initial guess
+- `TD`: curvelet transform
+- `A`: Forward operator (J or preconditioned J for LSRTM)
+- `b`: observed data
+- `x`: Initial guess
 """
 function bregman(A, TD, x::Array{vDt}, b, options) where {vDt}
     # residual function wrapper
@@ -60,13 +61,17 @@ end
 
 Linearized bregman iteration for the system
 
-    .5 * ||TD*x||_2^2 + λ ||TD*x||_1   s.t A*x = b
+``\\frac{1}{2} ||TD \\ x||_2^2 + λ ||TD \\ x||_1  \\ \\ \\ s.t Ax = b``
 
 For example, for sparsity promoting denoising (i.e LSRTM)
-    * TD: curvelet transform
-    * fun: residual function, return the tuple (||A*x - b||_2, A'*(A*x - b))
-    * b: observed data
-    * x: Initial guess
+
+# Arguments
+
+- `TD`: curvelet transform
+- `fun`: residual function, return the tuple (``f = \\frac{1}{2}||Ax - b||_2``, ``g = A^T(Ax - b)``)
+- `b`: observed data
+- `x`: Initial guess
+
 """
 function bregman(funobj::Function, x::AbstractArray{vDt}, options, TD=nothing) where {vDt}
     # Output Parameter Settings

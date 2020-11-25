@@ -26,22 +26,24 @@ end
 
 Options structure for Spectral Project Gradient algorithm.
 
-    * verbose: level of verbosity (0: no output, 1: iter (default))
-    * optTol: tolerance used to check for optimality (default: 1e-5)
-    * progTol: tolerance used to check for lack of progress (default: 1e-9)
-    * maxIter: maximum number of iterations (default: 20)
-    * suffDec: sufficient decrease parameter in Armijo condition (default: 1e-4)
-    * memory: number of steps to look back in non-monotone Armijo condition
-    * useSpectral: use spectral scaling of gradient direction (default: 1)
-    * curvilinear: backtrack along projection Arc (default: 0)
-    * testOpt: test optimality condition (default: 1)
-    * feasibleInit: if 1, then the initial point is assumed to be feasible
-    * bbType: type of Barzilai Borwein step (default: 1)
-    * testInit: Whether to test the initial estimate for optimality (default: false)
-    * store_trace: Whether to store the trace/history of x (default: false)
-    * optNorm: First-Order Optimality Conditions norm (default: Inf)
-    * iniStep: Initial step length estimate (default: 1)
-    * maxLinesearchIter: Maximum number of line search iteration (default: 20)
+# Arguments
+
+- `verbose`: level of verbosity (0: no output, 1: iter (default))
+- `optTol`: tolerance used to check for optimality (default: 1e-5)
+- `progTol`: tolerance used to check for lack of progress (default: 1e-9)
+- `maxIter`: maximum number of iterations (default: 20)
+- `suffDec`: sufficient decrease parameter in Armijo condition (default: 1e-4)
+- `memory`: number of steps to look back in non-monotone Armijo condition
+- `useSpectral`: use spectral scaling of gradient direction (default: 1)
+- `curvilinear`: backtrack along projection Arc (default: 0)
+- `testOpt`: test optimality condition (default: 1)
+- `feasibleInit`: if 1, then the initial point is assumed to be feasible
+- `bbType`: type of Barzilai Borwein step (default: 1)
+- `testInit`: Whether to test the initial estimate for optimality (default: false)
+- `store_trace`: Whether to store the trace/history of x (default: false)
+- `optNorm`: First-Order Optimality Conditions norm (default: Inf)
+- `iniStep`: Initial step length estimate (default: 1)
+- `maxLinesearchIter`: Maximum number of line search iteration (default: 20)
 """
 function spg_options(;verbose=1,optTol=1f-5,progTol=1f-7,
                      maxIter=20,suffDec=1f-4,memory=2,
@@ -63,16 +65,19 @@ end
 Function for using Spectral Projected Gradient to solve problems of the form
   min funObj(x) s.t. x in C
 
-  * funObj(x): function to minimize (returns gradient as second argument)
-  * funProj(x): function that returns projection of x onto C
-  * x: Initial guess
-  * options: spg_options structure
+# Arguments
 
-  Notes:
-      - if the projection is expensive to compute, you can reduce the
-          number of projections by setting testOpt to 0 in the options
+- `funObj(x)`:function to minimize (returns gradient as second argument)
+- `funProj(x)`: function that returns projection of x onto C
+- `x`: Initial guess
+- `options`: spg_options structure
 
-Adapted fromt he matlab implementation of minConf_SPG
+# Notes:
+
+- if the projection is expensive to compute, you can reduce the
+  number of projections by setting testOpt to 0 in the options
+
+- Adapted fromt he matlab implementation of minConf_SPG
 """
 function spg(funObj, x::AbstractArray{vDt}, funProj, options, ls=nothing) where {vDt}
     f(x) = funObj(x)[1]
@@ -87,18 +92,19 @@ end
 Function for using Spectral Projected Gradient to solve problems of the form
 min funObj(x) s.t. x in C
 
-* f(x): function to minimize (returns objective only)
-* g!(g, x): gradient of function (in place)
-* fg!(g, x): objective and gradient (in place)
-* funProj(x): function that returns projection of x onto C
-* x: Initial guess
-* options: spg_options structure
+# Arguments
+- `f(x)`: function to minimize (returns objective only)
+- `g!(g, x)`: gradient of function (in place)
+- `fg!(g, x)`: objective and gradient (in place)
+- `funProj(x)`: function that returns projection of x onto C
+- `x`: Initial guess
+- `options`: spg_options structure
 
-Notes:
-  - if the projection is expensive to compute, you can reduce the
+# Notes:
+- if the projection is expensive to compute, you can reduce the
       number of projections by setting testOpt to 0 in the options
 
-Adapted fromt he matlab implementation of minConf_SPG
+- Adapted fromt he matlab implementation of minConf_SPG
 """
 function spg(f::Function, g!::Function, fg!::Function, x::AbstractArray{vDt}, funProj, options, ls=nothing) where {vDt}
     # Initialize local variables

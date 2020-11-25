@@ -1,0 +1,45 @@
+name: CI-SLimOptim
+
+on:
+  # Trigger the workflow on push to master or pull request
+  # to be merged in master
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  test:
+    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+
+      matrix:
+        version:
+          - '1.1'
+          - '1.2'
+          - '1.3'
+          - '1.4'
+          - '1.5'
+        os:
+          - ubuntu-latest
+          - macos-latest
+        arch:
+          - x64
+
+    steps:
+      - name: Checkout SlimOptim
+        uses: actions/checkout@v2
+
+      - name: Setup julia
+        uses: julia-actions/setup-julia@v1
+        with:
+          version: ${{ matrix.version }}
+          arch: ${{ matrix.arch }}
+
+      - name: Run tests
+        uses: julia-actions/julia-runtest@latest

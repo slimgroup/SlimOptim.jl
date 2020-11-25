@@ -23,20 +23,22 @@ end
 
 Options structure for Spectral Project Gradient algorithm.
 
-    * verbose: level of verbosity (0: no output, 1: iter (default))
-    * optTol: tolerance used to check for optimality (default: 1e-5)
-    * progTol: tolerance used to check for progress (default: 1e-9)
-    * maxIter: maximum number of iterations (default: 20)
-    * suffDec: sufficient decrease parameter in Armijo condition (default: 1e-4)
-    * corrections: number of lbfgs corrections to store (default: 10)
-    * adjustStep: use quadratic initialization of line search (default: 0)
-    * bbInit: initialize sub-problem with Barzilai-Borwein step (default: 1)
-    * store_trace: Whether to store the trace/history of x (default: false)
-    * SPGoptTol: optimality tolerance for SPG direction finding (default: 1e-6)
-    * SPGprogTol: SPG tolerance used to check for progress (default: 1e-7)
-    * SPGiters: maximum number of iterations for SPG direction finding (default:10)
-    * SPGtestOpt: Whether to check for optimality in SPG (default: false)
-    * maxLinesearchIter: Maximum number of line search iteration (default: 20)
+# Arguments
+
+- `verbose`: level of verbosity (0: no output, 1: iter (default))
+- `optTol`: tolerance used to check for optimality (default: 1e-5)
+- `progTol`: tolerance used to check for progress (default: 1e-9)
+- `maxIter`: maximum number of iterations (default: 20)
+- `suffDec`: sufficient decrease parameter in Armijo condition (default: 1e-4)
+- `corrections`: number of lbfgs corrections to store (default: 10)
+- `adjustStep`: use quadratic initialization of line search (default: 0)
+- `bbInit`: initialize sub-problem with Barzilai-Borwein step (default: 1)
+- `store_trace`: Whether to store the trace/history of x (default: false)
+- `SPGoptTol`: optimality tolerance for SPG direction finding (default: 1e-6)
+- `SPGprogTol`: SPG tolerance used to check for progress (default: 1e-7)
+- `SPGiters`: maximum number of iterations for SPG direction finding (default:10)
+- `SPGtestOpt`: Whether to check for optimality in SPG (default: false)
+- `maxLinesearchIter`: Maximum number of line search iteration (default: 20)
 """
 function pqn_options(;verbose=1, optTol=1f-5, progTol=1f-7,
                      maxIter=20, suffDec=1f-4, corrections=10, adjustStep=false,
@@ -56,12 +58,14 @@ Function for using a limited-memory projected quasi-Newton to solve problems of 
 The projected quasi-Newton sub-problems are solved the spectral projected
 gradient algorithm
 
-  * funObj(x): function to minimize (returns gradient as second argument)
-  * funProj(x): function that returns projection of x onto C
-  * x: Initial guess
-  * options: pqn_options structure
+# Arguments
 
-Notes:
+- `funObj(x)`: function to minimize (returns gradient as second argument)
+- `funProj(x)`: function that returns projection of x onto C
+- `x`: Initial guess
+- `options`: pqn_options structure
+
+# Notes:
     Adapted fromt he matlab implementation of minConf_PQN
 """
 function pqn(funObj, x::AbstractArray{vDt}, funProj, options, ls=nothing) where {vDt}
@@ -80,14 +84,16 @@ Function for using a limited-memory projected quasi-Newton to solve problems of 
 The projected quasi-Newton sub-problems are solved the spectral projected
 gradient algorithm.
 
-  * f(x): function to minimize (returns objective only)
-  * g!(g, x): gradient of function (in place)
-  * fg!(g, x): objective and gradient (in place)
-  * funProj(x): function that returns projection of x onto C
-  * x: Initial guess
-  * options: pqn_options structure
+# Arguments
 
-Notes:
+- `f(x)`: function to minimize (returns objective only)
+- `g!(g, x)`: gradient of function (in place)
+- `fg!(g, x)`: objective and gradient (in place)
+- `funProj(x)`: function that returns projection of x onto C
+- `x`: Initial guess
+- `options`: pqn_options structure
+
+# Notes:
     Adapted fromt he matlab implementation of minConf_PQN
 """
 function pqn(f::Function, g!::Function, fg!::Function, x::AbstractArray{vDt}, funProj, options, ls=nothing) where {vDt}
