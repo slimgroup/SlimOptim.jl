@@ -20,7 +20,7 @@ To install this package you can either add the SLIM Registry
 or directly install it by itself
 
 ```julia
-] add https://github.com/slimgroup/SLIMregistryJL.git
+] add https://github.com/slimgroup/SlimOptim.git
 ```
 
 # Algorithms
