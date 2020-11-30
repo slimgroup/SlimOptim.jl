@@ -3,7 +3,7 @@
 [![](https://img.shields.io/badge/docs-dev-blue.svg)](https://slimgroup.github.io/SlimOptim.jl/dev/)
 [![](https://img.shields.io/badge/docs-stable-blue.svg)](https://slimgroup.github.io/SlimOptim.jl/stable/)
 [![Build Status](https://github.com/slimgroup/SlimOptim.jl/workflows/CI-SLimOptim/badge.svg)](https://github.com/slimgroup/SlimOptim.jl/actions?query=workflow%3ACI-SLimOptim)
-<!-- [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3878711.svg)](https://doi.org/10.5281/zenodo.3878711) -->
+[![DOI](https://zenodo.org/badge/314640400.svg)](https://zenodo.org/badge/latestdoi/314640400)
 
 Package of optimizations functions forl arge scale inversion. In these implementations, the algorithm itself is 
 not optimized fot speed as this oackage is designed for inverse problems where the function evaluation is the main cost (~hours for a single function + gradient evaluation) making the algorithm speed minimal.
@@ -44,8 +44,8 @@ This package implements adapatations of `minConf_SPG` and `minConf_PQN` from the
 ```
 * M. Schmidt, E. van den Berg, M. Friedlander, K. Murphy. Optimizing Costly Functions with Simple Constraints: A Limited-Memory Projected Quasi-Newton Algorithm. AISTATS, 2009.
 * M. Schmidt. minConf: projection methods for optimization with simple constraints in Matlab. http://www.cs.ubc.ca/~schmidtm/Software/minConf.html, 2008.
-* Lorenz
-* Mengmeng?
+* D. A. Lorenz, F. Schöpfer, and S. Wenger, The linearized Bregman method via split feasibility problems: Analysis and generalizations, SIAM Journal on Imaging Sciences, 7 (2014), pp. 1237-1262.
+* Emmanouil Daskalakis, Felix J. Herrmann, and Rachel Kuske, “Accelerating Sparse Recovery by Reducing Chatter”, SIAM Journal on Imaging Sciences, vol. 13, pp. 1211–1239, 2020
 ```
 
 [1]:https://www.cs.ubc.ca/~schmidtm/Software/minConf.html

@@ -15,7 +15,7 @@ function update!(r::result; x=nothing, ϕ=nothing, g=nothing, iter=1, store_trac
     ~isnothing(x) && copyto!(r.x, x)
     ~isnothing(ϕ) && (r.ϕ = ϕ)
     ~isnothing(g) && copyto!(r.g, g)
-    (~isnothing(x) && length(r.x_trace) == iter-1 && store_trace) && (push!(r.x_trace, x))
+    (~isnothing(x) && length(r.x_trace) == iter-1 && store_trace) && (push!(r.x_trace, deepcopy(x)))
     (~isnothing(ϕ) && length(r.ϕ_trace) == iter-1) && (push!(r.ϕ_trace, ϕ))
 end
 
