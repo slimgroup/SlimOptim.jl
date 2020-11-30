@@ -50,7 +50,7 @@ function pqn_options(;verbose=1, optTol=1f-5, progTol=1f-7,
 end
 
 """
-    pqn(objective, projection, x,options)
+    pqn(objective, x, projection, options)
 
 Function for using a limited-memory projected quasi-Newton to solve problems of the form
   min objective(x) s.t. x in C

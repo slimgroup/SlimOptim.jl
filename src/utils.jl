@@ -20,7 +20,7 @@ function update!(r::result; x=nothing, ϕ=nothing, g=nothing, iter=1, store_trac
 end
 
 function result(init_x; ϕ0=0, ϕeval=0, δϕeval=0)
-    return result(init_x, 0.0f0*init_x, ϕ0, Vector{}(), Vector{}(), 0, ϕeval, δϕeval)
+    return result(deepcopy(init_x), 0.0f0*init_x, ϕ0, Vector{}(), Vector{}(), 0, ϕeval, δϕeval)
 end
 
 function isLegal(v)
