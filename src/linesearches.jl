@@ -17,7 +17,8 @@ Line search interface to LineSearches.jl
 - `gvec`: prealocated array for thhe gradient
 
 """
-function linesearch(ls, sol, d, f, g!, fg!, t, funRef, gtd, gvec)
+function linesearch(ls, sol::result, d::Array{T}, f::Function, g!::Function, fg!::Function,
+                    t::T, funRef::T, gtd::T, gvec::Array{T}) where T
     # Univariate line search functions
     ϕ(α) = f(sol.x .+ α.*d)
 
@@ -32,10 +33,11 @@ function linesearch(ls, sol, d, f, g!, fg!, t, funRef, gtd, gvec)
         return (phi, dphi)
     end
 
+    # Line search. Prevents it to throw error.
     try
         return ls(ϕ, dϕ, ϕdϕ, t, funRef, gtd)
     catch e
         @info "Line search failed"
-        return eps(t)*t, funRef
+        return eps(T)*t, funRef
     end
 end

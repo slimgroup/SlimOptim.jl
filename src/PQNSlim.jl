@@ -68,18 +68,19 @@ gradient algorithm
 # Notes:
     Adapted fromt he matlab implementation of minConf_PQN
 """
-function pqn(funObj, x::AbstractArray{vDt}, funProj::Function, options::PQN_params, ls=nothing) where {vDt}
+function pqn(funObj, x::AbstractArray{T}, funProj::Function, options::PQN_params, ls=nothing) where {T}
     # Result structure
     sol = result(x)
+    G = similar(x)
 
     # Setup Function to track number of evaluations
     projection(x) = (sol.n_project +=1; return funProj(x))
-    obj(x) = (sol.n_ϕeval +=1; sol.n_geval +=1 ; funObj(x)[1])
     grad!(g, x) = (sol.n_ϕeval +=1; sol.n_geval +=1 ; g .= funObj(x)[2])
     objgrad!(g, x) = (sol.n_ϕeval +=1; sol.n_geval +=1 ;(obj, g0) = funObj(x); g .= g0; return obj)
+    obj(x) = objgrad!(G, x)
 
     # Solve optimization
-    return _pqn(obj, grad!, objgrad!, projection, x, sol, ls, options)
+    return _pqn(obj, grad!, objgrad!, projection, x, G, sol, ls, options)
 end
 
 """
@@ -103,10 +104,11 @@ gradient algorithm.
 # Notes:
     Adapted fromt he matlab implementation of minConf_PQN
 """
-function pqn(f::Function, g!::Function, fg!::Function, x::AbstractArray{vDt},
-             funProj::Function, options::PQN_params, ls=nothing) where {vDt}
+function pqn(f::Function, g!::Function, fg!::Function, x::AbstractArray{T},
+             funProj::Function, options::PQN_params, ls=nothing) where {T}
     # Result structure
     sol = result(x)
+    G = similar(x)
 
     # Setup Function to track number of evaluations
     projection(x) = (sol.n_project +=1; return funProj(x))
@@ -115,14 +117,14 @@ function pqn(f::Function, g!::Function, fg!::Function, x::AbstractArray{vDt},
     objgrad!(g, x) = (sol.n_ϕeval +=1;sol.n_geval +=1 ; return fg!(g, x))
 
     # Solve optimization
-    return _pqn(obj, grad!, objgrad!, projection, x, sol, ls, options)
+    return _pqn(obj, grad!, objgrad!, projection, x, G, sol, ls, options)
 end
 
 """
 Low level PQN solver
 """
 function _pqn(obj::Function, grad!::Function, objgrad!::Function, projection::Function,
-              x::AbstractArray{vDt}, sol::result, ls, options::PQN_params) where {vDt}
+              x::AbstractArray{T}, g::AbstractArray{T}, sol::result, ls, options::PQN_params) where {T}
     nVars = length(x)
     spg_opt = spg_options(optTol=options.SPGoptTol,progTol=options.SPGprogTol, maxIter=options.SPGiters,
                           testOpt=options.SPGtestOpt, feasibleInit=~options.bbInit, verbose=0)
@@ -140,9 +142,8 @@ function _pqn(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
        @printf("Maximum number of iterations: %d\n",options.maxIter)
     end
 
-    g = similar(x)
     # Line search function
-    isnothing(ls) && (ls = BackTracking(order=3, iterations=options.maxLinesearchIter))
+    isnothing(ls) && (ls = BackTracking{T}(order=3, iterations=options.maxLinesearchIter))
     checkls(ls)
 
     # Project initial parameter vector
@@ -166,9 +167,9 @@ function _pqn(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
     end
 
     # Initialize variables
-    S = zeros(vDt, nVars, 0)
-    Y = zeros(vDt, nVars, 0)
-    d = zeros(vDt, nVars)
+    S = zeros(T, nVars, 0)
+    Y = zeros(T, nVars, 0)
+    d = zeros(T, nVars)
     Hdiag = 1
 
     for i=1:options.maxIter
@@ -176,13 +177,13 @@ function _pqn(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
         if i == 1
             p = projection(x-g)
         else
-            y = g-sol.g
-            s = x-sol.x
-            S, Y, Hdiag = lbfgsUpdate(y,s,options.corrections,options.verbose,S,Y,Hdiag)
+            y = g - sol.g
+            s = x - sol.x
+            S, Y, Hdiag = lbfgsUpdate(y, s, options.corrections, S, Y, Hdiag)
 
             # Make Compact Representation
-            k = size(Y,2)
-            L = zeros(Float32, k, k)
+            k = size(Y, 2)
+            L = zeros(T, k, k)
             for j = 1:k
                 L[j+1:k,j] = transpose(S[:,j+1:k])*Y[:,j]
             end
@@ -197,12 +198,12 @@ function _pqn(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
                     alpha = min(1,1/norm(g, 1))
                 end
                 # Solve Sub-problem
-                xSubInit = x-alpha*g
+                xSubInit = x-T(alpha)*g
             else
                 xSubInit = x
             end
             # Solve Sub-problem
-            p = solveSubProblem(x,g,HvFunc,projection,spg_opt,xSubInit)
+            p = solveSubProblem(x, g, HvFunc, projection, spg_opt, xSubInit)
         end
         @. d = p - x
 
@@ -213,15 +214,15 @@ function _pqn(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
             break
         end
         # Select Initial Guess to step length
-        (~options.adjustStep || gtd == 0 || i==1) ? t = vDt(1) : t = vDt(min(1, 2*(ϕ-sol.ϕ)/gtd))
+        (~options.adjustStep || gtd == 0 || i==1) ? t = T(1) : t = T(min(1, 2*(ϕ-sol.ϕ)/gtd))
 
         # Save history
         i>1 && update!(sol; iter=i, ϕ=ϕ, x=x, g=g, store_trace=options.store_trace)
-        
+
         # Line search
         t, ϕ = linesearch(ls, sol, d, obj, grad!, objgrad!, t, sol.ϕ, gtd, g)
         x .= projection(sol.x + t*d)
-        grad!(g, x)
+        g == sol.g && grad!(g, x)
 
         # Check termination
 	    optCond = norm(projection(x-g) - x, Inf)

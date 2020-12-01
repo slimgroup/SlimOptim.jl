@@ -44,7 +44,7 @@ For example, for sparsity promoting denoising (i.e LSRTM)
 - `b`: observed data
 - `x`: Initial guess
 """
-function bregman(A, TD, x::Array{vDt}, b, options) where {vDt}
+function bregman(A, TD, x::Array{T}, b, options) where {T}
     # residual function wrapper
     function obj(x)
         d = A*x
@@ -73,7 +73,7 @@ For example, for sparsity promoting denoising (i.e LSRTM)
 - `x`: Initial guess
 
 """
-function bregman(funobj::Function, x::AbstractArray{vDt}, options, TD=nothing) where {vDt}
+function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams, TD=nothing) where {T}
     # Output Parameter Settings
     if options.verbose > 0
         @printf("Running linearized bregman...\n");
@@ -81,7 +81,7 @@ function bregman(funobj::Function, x::AbstractArray{vDt}, options, TD=nothing) w
         @printf("Maximum number of iterations: %d\n",options.maxIter)
         @printf("Anti-chatter correction: %d\n",options.antichatter)
     end
-    isnothing(TD) && (TD = Matrix{vDt}(I, length(x), length(x)))
+    isnothing(TD) && (TD = Matrix{T}(I, length(x), length(x)))
     # Intitalize variables
     z = TD*x
     d = similar(z)
@@ -92,7 +92,7 @@ function bregman(funobj::Function, x::AbstractArray{vDt}, options, TD=nothing) w
     # Result structure
     sol = breglog(x, z)
     # Initialize λ
-    λ = vDt(0)
+    λ = T(0)
 
     # Output Log
     if options.verbose > λ
@@ -105,7 +105,7 @@ function bregman(funobj::Function, x::AbstractArray{vDt}, options, TD=nothing) w
         # Preconditionned ipdate direction
         d .= -TD*g
         # Step length
-        t = vDt(options.alpha*f/norm(d)^2)
+        t = T(options.alpha*f/norm(d)^2)
 
         # Anti-chatter
         if options.antichatter
@@ -118,7 +118,7 @@ function bregman(funobj::Function, x::AbstractArray{vDt}, options, TD=nothing) w
         # Update z variable
         @. z = z + d
         # Get λ at first iteration
-        i == 1 && (λ = vDt(quantile(abs.(z), options.quantile)))
+        i == 1 && (λ = T(quantile(abs.(z), options.quantile)))
         # Update x
         x = TD'*soft_thresholding(z, λ)
 

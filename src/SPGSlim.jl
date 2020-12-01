@@ -79,19 +79,21 @@ Function for using Spectral Projected Gradient to solve problems of the form
 
 - Adapted fromt he matlab implementation of minConf_SPG
 """
-function spg(funObj::Function, x::AbstractArray{vDt}, funProj::Function,
-             options::SPG_params, ls=nothing) where {vDt}
+function spg(funObj::Function, x::AbstractArray{T}, funProj::Function,
+             options::SPG_params, ls=nothing) where {T}
     # Result structure
     sol = result(x)
+    # Initialize array for gradient
+    G = similar(x)
 
     # Setup Function to track number of evaluations
     projection(x) = (sol.n_project +=1; return funProj(x))
-    obj(x) = (sol.n_ϕeval +=1; sol.n_geval +=1 ; funObj(x)[1])
     grad!(g, x) = (sol.n_ϕeval +=1; sol.n_geval +=1 ; g .= funObj(x)[2])
     objgrad!(g, x) = (sol.n_ϕeval +=1; sol.n_geval +=1 ;(obj, g0) = funObj(x); g .= g0; return obj)
+    obj(x) = objgrad!(G, x)
 
     # Solve optimization
-    return _spg(obj, grad!, objgrad!, projection, x, sol, ls, options)
+    return _spg(obj, grad!, objgrad!, projection, x, G, sol, ls, options)
 end
 
 """
@@ -114,10 +116,12 @@ min funObj(x) s.t. x in C
 
 - Adapted fromt he matlab implementation of minConf_SPG
 """
-function spg(f::Function, g!::Function, fg!::Function, x::AbstractArray{vDt},
-             funProj::Function, options::SPG_params, ls=nothing) where {vDt}
+function spg(f::Function, g!::Function, fg!::Function, x::AbstractArray{T},
+             funProj::Function, options::SPG_params, ls=nothing) where {T}
     # Result structure
     sol = result(x)
+    # Initialize array for gradient
+    G = similar(x)
 
     # Setup Function to track number of evaluations
     projection(x) = (sol.n_project +=1; return funProj(x))
@@ -126,25 +130,24 @@ function spg(f::Function, g!::Function, fg!::Function, x::AbstractArray{vDt},
     objgrad!(g, x) = (sol.n_ϕeval +=1;sol.n_geval +=1 ; return fg!(g, x))
 
     # Solve optimization
-    return _spg(obj, grad!, objgrad!, projection, x, sol, ls, options)
+    return _spg(obj, grad!, objgrad!, projection, x, G, sol, ls, options)
 end
 
 """
 Low level SPG solver
 """
 function _spg(obj::Function, grad!::Function, objgrad!::Function, projection::Function,
-              x::AbstractArray{vDt}, sol::result, ls, options::SPG_params) where {vDt}
+              x::AbstractArray{T}, g::AbstractArray{T}, sol::result, ls, options::SPG_params) where {T}
     # Initialize local variables
     nVars = length(x)
-    options.memory > 1 && (old_ϕvals = -Inf*ones(vDt, options.memory))
-    d = zeros(vDt, nVars)
-    g = zeros(vDt, nVars)
+    options.memory > 1 && (old_ϕvals = -T(Inf)*ones(T, options.memory))
+    d = zeros(T, nVars)
     optCond = 0
     # Result structure
     x_best = x
 
     # Line search function
-    isnothing(ls) && (ls = BackTracking(order=3, iterations=options.maxLinesearchIter))
+    isnothing(ls) && (ls = BackTracking{T}(order=3, iterations=options.maxLinesearchIter))
     checkls(ls)
 
     # Evaluate Initial Point and objective function
@@ -169,7 +172,7 @@ function _spg(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
     for i = 1:options.maxIter
         # Compute Step Directional
         if i == 1 || ~options.useSpectral
-            alpha = vDt(.1*norm(x, Inf)/norm(g, Inf))
+            alpha = T(.1*norm(x, Inf)/norm(g, Inf))
         else
             y = g - sol.g
             s = x - sol.x
@@ -183,7 +186,7 @@ function _spg(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
             end
         end
         i>1 && update!(sol; iter=i, ϕ=ϕ, x=x, g=g, store_trace=options.store_trace)
-        @. d = -vDt(alpha).*g
+        @. d = -T(alpha).*g
 
         # Compute Projected Step
         ~options.curvilinear && (d .= projection(x + d) - x)
@@ -196,7 +199,7 @@ function _spg(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
         end
 
         # Select Initial Guess to step length
-        t = vDt(options.iniStep)
+        t = T(options.iniStep)
 
         # Compute reference function for non-monotone condition
         if options.memory == 1
@@ -209,7 +212,7 @@ function _spg(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
         # Line search
         t, ϕ = linesearch(ls, sol, d, obj, grad!, objgrad!, t, ϕ_ref, gtd, g)
         x .= projection(sol.x + t*d)
-        grad!(g, x)
+        g == sol.g && grad!(g, x)
 
         # Check conditioning
         if options.testOpt
