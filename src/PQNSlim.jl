@@ -188,7 +188,7 @@ function _pqn(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
             end
             N = [S/Hdiag Y];
             M = [S'*S/Hdiag L;transpose(L) -Diagonal(diag(S'*Y))]
-            HvFunc(v) = lbfgsHvFunc2(v,Hdiag,N,M)
+            HvFunc(v) = lbfgsHvFunc2(v, Hdiag, N, M)
 
             if options.bbInit || i < options.corrections/2
                 # Use Barzilai-Borwein step to initialize sub-problem
@@ -207,7 +207,7 @@ function _pqn(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
         @. d = p - x
 
         # Check that Progress can be made along the direction
-        gtd = dot(g,d)
+        gtd = dot(g, d)
         if gtd > -options.progTol && (i > options.corrections/2)
             options.verbose > 0 && @printf("Directional Derivative below progTol\n")
             break

@@ -78,7 +78,7 @@ function lbfgsUpdate(y, s, corrections, debug, old_dirs, old_stps, Hdiag)
     return old_dirs, old_stps, Hdiag
 end
 
-function lbfgsHvFunc2(v,Hdiag,N,M)
+function lbfgsHvFunc2(v, Hdiag, N, M)
     if cond(M)>(1/(eps(Float32)))
         pr =  Array{Float32}(ssbin(M,500))
         L = Diagonal(vec(pr))
@@ -90,7 +90,7 @@ function lbfgsHvFunc2(v,Hdiag,N,M)
     return Hv
 end
 
-function ssbin(A,nmv)
+function ssbin(A, nmv)
     # Stochastic matrix-free binormalization for symmetric real A.
     # x = ssbin(A,nmv,n)
     #   A is a symmetric real matrix or function handle. If it is a
@@ -140,14 +140,13 @@ function solveSubProblem(x, g, H, funProj, options, x_init)
     return sol.x 
 end
 
-function subHv(p,x,g,HvFunc)
+function subHv(p, x, g, HvFunc)
     d = p - x
     Hd = HvFunc(d)
-    f = dot(g,d) + (1f0/2f0)*dot(d,Hd)
+    f = dot(g, d) + dot(d, Hd) / 2
     g = g + Hd
     return f, g
 end
-
 
 # THresholding
 soft_thresholding(x::Array{Complex{vDt}}, λ::vDt) where {vDt} = exp.(angle.(x)im) .* max.(abs.(x) .- convert(vDt, λ), vDt(0))
