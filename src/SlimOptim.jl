@@ -11,11 +11,11 @@ export spg, spg_options
 export bregman, bregman_options
 #############################################################################
 # Optimization algorithms
-include("linesearches.jl")   # minConf_PQN
+include("utils.jl") # common functions
+include("linesearches.jl")   # LineSearches.jl
 include("SPGSlim.jl")   # minConf_SPG
 include("PQNSlim.jl")   # minConf_PQN
-include("bregman.jl")   # minConf_PQN
-include("utils.jl") # common functions
+include("bregman.jl")   # Linearized bregman iterations
 
 
 function checkls(ls) 

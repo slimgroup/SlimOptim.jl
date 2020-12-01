@@ -79,11 +79,19 @@ Function for using Spectral Projected Gradient to solve problems of the form
 
 - Adapted fromt he matlab implementation of minConf_SPG
 """
-function spg(funObj, x::AbstractArray{vDt}, funProj, options, ls=nothing) where {vDt}
-    f(x) = funObj(x)[1]
-    g!(g, x) = (g .= funObj(x)[2]; return)
-    fg!(g, x) = ((obj, g0) = funObj(x); g .= g0; return obj)
-    return spg(f, g!, fg!, x, funProj, options, ls)
+function spg(funObj::Function, x::AbstractArray{vDt}, funProj::Function,
+             options::SPG_params, ls=nothing) where {vDt}
+    # Result structure
+    sol = result(x)
+
+    # Setup Function to track number of evaluations
+    projection(x) = (sol.n_project +=1; return funProj(x))
+    obj(x) = (sol.n_ϕeval +=1; sol.n_geval +=1 ; funObj(x)[1])
+    grad!(g, x) = (sol.n_ϕeval +=1; sol.n_geval +=1 ; g .= funObj(x)[2])
+    objgrad!(g, x) = (sol.n_ϕeval +=1; sol.n_geval +=1 ;(obj, g0) = funObj(x); g .= g0; return obj)
+
+    # Solve optimization
+    return _spg(obj, grad!, objgrad!, projection, x, sol, ls, options)
 end
 
 """
@@ -106,7 +114,26 @@ min funObj(x) s.t. x in C
 
 - Adapted fromt he matlab implementation of minConf_SPG
 """
-function spg(f::Function, g!::Function, fg!::Function, x::AbstractArray{vDt}, funProj, options, ls=nothing) where {vDt}
+function spg(f::Function, g!::Function, fg!::Function, x::AbstractArray{vDt},
+             funProj::Function, options::SPG_params, ls=nothing) where {vDt}
+    # Result structure
+    sol = result(x)
+
+    # Setup Function to track number of evaluations
+    projection(x) = (sol.n_project +=1; return funProj(x))
+    obj(x) = (sol.n_ϕeval +=1 ; return f(x))
+    grad!(g, x) = (sol.n_geval +=1 ; return g!(g, x))
+    objgrad!(g, x) = (sol.n_ϕeval +=1;sol.n_geval +=1 ; return fg!(g, x))
+
+    # Solve optimization
+    return _spg(obj, grad!, objgrad!, projection, x, sol, ls, options)
+end
+
+"""
+Low level SPG solver
+"""
+function _spg(obj::Function, grad!::Function, objgrad!::Function, projection::Function,
+              x::AbstractArray{vDt}, sol::result, ls, options::SPG_params) where {vDt}
     # Initialize local variables
     nVars = length(x)
     options.memory > 1 && (old_ϕvals = -Inf*ones(vDt, options.memory))
@@ -114,18 +141,12 @@ function spg(f::Function, g!::Function, fg!::Function, x::AbstractArray{vDt}, fu
     g = zeros(vDt, nVars)
     optCond = 0
     # Result structure
-    sol = result(x)
     x_best = x
-
-    # Setup Function to track number of evaluations
-    projection(x) = (sol.n_project +=1; return funProj(x))
-    obj(x) = (sol.n_ϕeval +=1 ; return f(x))
-    grad!(g, x) = (sol.n_geval +=1 ; return g!(g, x))
-    objgrad!(g, x) = (sol.n_ϕeval +=1; sol.n_geval +=1 ; return fg!(g, x))
 
     # Line search function
     isnothing(ls) && (ls = BackTracking(order=3, iterations=options.maxLinesearchIter))
     checkls(ls)
+
     # Evaluate Initial Point and objective function
     ~options.feasibleInit && (x = projection(x))
     ϕ = objgrad!(g, x)

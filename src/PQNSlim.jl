@@ -68,11 +68,18 @@ gradient algorithm
 # Notes:
     Adapted fromt he matlab implementation of minConf_PQN
 """
-function pqn(funObj, x::AbstractArray{vDt}, funProj, options, ls=nothing) where {vDt}
-    f(x) = funObj(x)[1]
-    g!(g, x) = (g .= funObj(x)[2]; return)
-    fg!(g, x) = ((obj, g0) = funObj(x); g .= g0; return obj)
-    return pqn(f, g!, fg!, x, funProj, options, ls)
+function pqn(funObj, x::AbstractArray{vDt}, funProj::Function, options::PQN_params, ls=nothing) where {vDt}
+    # Result structure
+    sol = result(x)
+
+    # Setup Function to track number of evaluations
+    projection(x) = (sol.n_project +=1; return funProj(x))
+    obj(x) = (sol.n_ϕeval +=1; sol.n_geval +=1 ; funObj(x)[1])
+    grad!(g, x) = (sol.n_ϕeval +=1; sol.n_geval +=1 ; g .= funObj(x)[2])
+    objgrad!(g, x) = (sol.n_ϕeval +=1; sol.n_geval +=1 ;(obj, g0) = funObj(x); g .= g0; return obj)
+
+    # Solve optimization
+    return _pqn(obj, grad!, objgrad!, projection, x, sol, ls, options)
 end
 
 """
@@ -96,7 +103,26 @@ gradient algorithm.
 # Notes:
     Adapted fromt he matlab implementation of minConf_PQN
 """
-function pqn(f::Function, g!::Function, fg!::Function, x::AbstractArray{vDt}, funProj, options, ls=nothing) where {vDt}
+function pqn(f::Function, g!::Function, fg!::Function, x::AbstractArray{vDt},
+             funProj::Function, options::PQN_params, ls=nothing) where {vDt}
+    # Result structure
+    sol = result(x)
+
+    # Setup Function to track number of evaluations
+    projection(x) = (sol.n_project +=1; return funProj(x))
+    obj(x) = (sol.n_ϕeval +=1 ; return f(x))
+    grad!(g, x) = (sol.n_geval +=1 ; return g!(g, x))
+    objgrad!(g, x) = (sol.n_ϕeval +=1;sol.n_geval +=1 ; return fg!(g, x))
+
+    # Solve optimization
+    return _pqn(obj, grad!, objgrad!, projection, x, sol, ls, options)
+end
+
+"""
+Low level PQN solver
+"""
+function _pqn(obj::Function, grad!::Function, objgrad!::Function, projection::Function,
+              x::AbstractArray{vDt}, sol::result, ls, options::PQN_params) where {vDt}
     nVars = length(x)
     spg_opt = spg_options(optTol=options.SPGoptTol,progTol=options.SPGprogTol, maxIter=options.SPGiters,
                           testOpt=options.SPGtestOpt, feasibleInit=~options.bbInit, verbose=0)
@@ -114,16 +140,7 @@ function pqn(f::Function, g!::Function, fg!::Function, x::AbstractArray{vDt}, fu
        @printf("Maximum number of iterations: %d\n",options.maxIter)
     end
 
-    # Result structure
-    sol = result(x)
     g = similar(x)
-
-    # Setup Function to track number of evaluations
-    projection(x) = (sol.n_project +=1; return funProj(x))
-    obj(x) = (sol.n_ϕeval +=1 ; return f(x))
-    grad!(g, x) = (sol.n_geval +=1 ; return g!(g, x))
-    objgrad!(g, x) = (sol.n_ϕeval +=1;sol.n_geval +=1 ; return fg!(g, x))
-
     # Line search function
     isnothing(ls) && (ls = BackTracking(order=3, iterations=options.maxLinesearchIter))
     checkls(ls)
@@ -196,7 +213,7 @@ function pqn(f::Function, g!::Function, fg!::Function, x::AbstractArray{vDt}, fu
             break
         end
         # Select Initial Guess to step length
-        (~options.adjustStep || gtd == 0 || i==1) ? t = 1.0 : t = vDt(min(1, 2*(ϕ-sol.ϕ)/gtd))
+        (~options.adjustStep || gtd == 0 || i==1) ? t = vDt(1) : t = vDt(min(1, 2*(ϕ-sol.ϕ)/gtd))
 
         # Save history
         i>1 && update!(sol; iter=i, ϕ=ϕ, x=x, g=g, store_trace=options.store_trace)
