@@ -36,6 +36,6 @@ function linesearch(ls, sol, d, f, g!, fg!, t, funRef, gtd, gvec)
         return ls(ϕ, dϕ, ϕdϕ, t, funRef, gtd)
     catch e
         @info "Line search failed"
-        return eps(1f0)*t, funRef
+        return eps(t)*t, funRef
     end
 end
