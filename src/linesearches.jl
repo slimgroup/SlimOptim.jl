@@ -18,7 +18,7 @@ Line search interface to LineSearches.jl
 
 """
 function linesearch(ls, sol::result, d::Array{T}, f::Function, g!::Function, fg!::Function,
-                    t::T, funRef::T, gtd::T, gvec::Array{T}) where T
+                    t::T, funRef::T, gtd::T, gvec::AbstractArray{T}) where T
     # Univariate line search functions
     ϕ(α) = f(sol.x .+ α.*d)
 

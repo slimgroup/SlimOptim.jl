@@ -176,16 +176,13 @@ function _spg(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
         else
             y = g - sol.g
             s = x - sol.x
-            if options.bbType == 1
-                alpha = dot(s,s)/dot(s,y)
-            else
-                alpha = dot(s,y)/dot(y,y)
-            end
-            if alpha <= 1e-10 || alpha > 1e10 || ~isLegal(alpha)
-                alpha = 1
-            end
+            options.bbType == 1 ? alpha = dot(s,s)/dot(s,y) : alpha = dot(s,y)/dot(y,y)
         end
+        # Make sure alpha value is valid
+        (alpha <= 1e-10 || alpha > 1e10 || ~isLegal(alpha)) && (alpha = T(1))
+        # Update log
         i>1 && update!(sol; iter=i, ϕ=ϕ, x=x, g=g, store_trace=options.store_trace)
+        # Compute Step
         @. d = -T(alpha).*g
 
         # Compute Projected Step

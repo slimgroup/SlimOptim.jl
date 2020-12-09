@@ -1,11 +1,11 @@
 export isLegal, lbfgsUpdate, lbfgsHvFunc2, ssbin, solveSubProblem, subHv, result, soft_thresholding
 
 mutable struct result{T}
-    x::Array{T}
-    g::Array{T}
+    x::AbstractArray{T}
+    g::AbstractArray{T}
     ϕ::T
     ϕ_trace::Vector{T}
-    x_trace::Vector{Array{T}}
+    x_trace::Vector{AbstractArray{T}}
     n_project::Integer
     n_ϕeval::Integer
     n_geval::Integer
@@ -19,11 +19,11 @@ function update!(r::result; x=nothing, ϕ=nothing, g=nothing, iter=1, store_trac
     (~isnothing(ϕ) && length(r.ϕ_trace) == iter-1) && (push!(r.ϕ_trace, ϕ))
 end
 
-function result(init_x::Array{T}; ϕ0=0, ϕeval=0, δϕeval=0) where T
-    return result(deepcopy(init_x), T(0)*init_x, T(ϕ0), Vector{T}(), Vector{Array{T}}(), 0, ϕeval, δϕeval)
+function result(init_x::AbstractArray{T}; ϕ0=0, ϕeval=0, δϕeval=0) where T
+    return result(deepcopy(init_x), T(0)*init_x, T(ϕ0), Vector{T}(), Vector{AbstractArray{T}}(), 0, ϕeval, δϕeval)
 end
 
-function isLegal(v::Array{T}) where T
+function isLegal(v::AbstractArray{T}) where T
     nv = norm(v)
     return !isnan(nv) && !isinf(nv)
 end
@@ -47,6 +47,7 @@ function terminate(options, optCond, t, d, ϕ, ϕ_old)
         options.verbose >= 1 && @printf("Function value changing by less than progTol\n")
         return true
     end
+    t == 0 && return true
     return false
 end
 
@@ -54,8 +55,8 @@ end
 """
     PQN lbfgs functions
 """
-function lbfgsUpdate(y::Array{T}, s::Array{T}, corrections::Integer,
-                     old_dirs::Array{T, 2}, old_stps::Array{T, 2},
+function lbfgsUpdate(y::AbstractArray{T}, s::AbstractArray{T}, corrections::Integer,
+                     old_dirs::AbstractArray{T, 2}, old_stps::AbstractArray{T, 2},
                      Hdiag) where T
     ys = dot(y,s)
     if ys > 1e-10 || size(old_dirs,2)==0
@@ -76,7 +77,7 @@ function lbfgsUpdate(y::Array{T}, s::Array{T}, corrections::Integer,
     return old_dirs, old_stps, Hdiag
 end
 
-function lbfgsHvFunc2(v::Array{T}, Hdiag, N::Array{T, 2}, M::Array{T, 2}) where T
+function lbfgsHvFunc2(v::AbstractArray{T}, Hdiag, N::AbstractArray{T, 2}, M::AbstractArray{T, 2}) where T
     if cond(M)>(1/(eps(T)))
         pr = ssbin(M, 500)
         L = Diagonal(vec(pr))
@@ -88,7 +89,7 @@ function lbfgsHvFunc2(v::Array{T}, Hdiag, N::Array{T, 2}, M::Array{T, 2}) where 
     return Hv
 end
 
-function ssbin(A::Array{T, N}, nmv) where {T, N}
+function ssbin(A::AbstractArray{T, N}, nmv) where {T, N}
     # Stochastic matrix-free binormalization for symmetric real A.
     # x = ssbin(A,nmv,n)
     #   A is a symmetric real matrix or function handle. If it is a
@@ -132,15 +133,15 @@ function ssbin(A::Array{T, N}, nmv) where {T, N}
     return 1 ./(d.*dp).^(T(.25))
 end
 
-function solveSubProblem(x::Array{T}, g::Array{T}, H,
-                         funProj::Function, options, x_init::Array{T}) where T
+function solveSubProblem(x::AbstractArray{T}, g::AbstractArray{T}, H,
+                         funProj::Function, options, x_init::AbstractArray{T}) where T
     # Uses SPG to solve for projected quasi-Newton direction
     funObj(p) = subHv(p, x, g, H)
     sol = spg(funObj, x_init, funProj, options)
     return sol.x
 end
 
-function subHv(p::Array{T}, x::Array{T}, g::Array{T}, HvFunc::Function) where T
+function subHv(p::AbstractArray{T}, x::AbstractArray{T}, g::AbstractArray{T}, HvFunc::Function) where T
     d = p - x
     Hd = HvFunc(d)
     f = dot(g, d) + dot(d, Hd) / 2
@@ -149,7 +150,7 @@ function subHv(p::Array{T}, x::Array{T}, g::Array{T}, HvFunc::Function) where T
 end
 
 # THresholding
-soft_thresholding(x::Array{Complex{T}}, λ::T) where {T} = exp.(angle.(x)im) .* max.(abs.(x) .- convert(T, λ), T(0))
-soft_thresholding(x::Array{Complex{T}}, λ::Array{T}) where {T} = exp.(angle.(x)im) .* max.(abs.(x) .- convert(Array{T}, λ), T(0))
-soft_thresholding(x::Array{T}, λ::T) where {T} = sign.(x) .* max.(abs.(x) .- convert(T, λ), T(0))
-soft_thresholding(x::Array{T}, λ::Array{T}) where {T} = sign.(x) .* max.(abs.(x) .- convert(Array{T}, λ), T(0))
+soft_thresholding(x::AbstractArray{Complex{T}}, λ::T) where {T} = exp.(angle.(x)im) .* max.(abs.(x) .- convert(T, λ), T(0))
+soft_thresholding(x::AbstractArray{Complex{T}}, λ::Array{T}) where {T} = exp.(angle.(x)im) .* max.(abs.(x) .- convert(Array{T}, λ), T(0))
+soft_thresholding(x::AbstractArray{T}, λ::T) where {T} = sign.(x) .* max.(abs.(x) .- convert(T, λ), T(0))
+soft_thresholding(x::AbstractArray{T}, λ::Array{T}) where {T} = sign.(x) .* max.(abs.(x) .- convert(Array{T}, λ), T(0))

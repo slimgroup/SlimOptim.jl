@@ -43,7 +43,7 @@ Options structure for Spectral Project Gradient algorithm.
 function pqn_options(;verbose=1, optTol=1f-5, progTol=1f-7,
                      maxIter=20, suffDec=1f-4, corrections=10, adjustStep=false,
                      bbInit=true, store_trace=false, SPGoptTol=1f-6, SPGprogTol=1f-7,
-                     SPGiters=10, SPGtestOpt=false, maxLinesearchIter=20)
+                     SPGiters=100, SPGtestOpt=false, maxLinesearchIter=20)
     return PQN_params(verbose, optTol ,progTol, Int64(maxIter), suffDec, corrections,
                       adjustStep, bbInit, store_trace, SPGoptTol,
                       SPGprogTol, SPGiters, SPGtestOpt, Int64(maxLinesearchIter))

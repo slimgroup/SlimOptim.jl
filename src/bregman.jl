@@ -108,7 +108,7 @@ function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams, 
         t = T(options.alpha*f/norm(d)^2)
 
         # Anti-chatter
-        if options.antichatter
+        if options.antichatter  
             @. tk = tk + sign.(g)
             # Chatter correction
             inds_z = findall(abs.(z) .> λ)
@@ -182,5 +182,5 @@ function update!(r::BregmanIterations; x=nothing, z=nothing, ϕ=nothing, residua
 end
 
 function breglog(init_x, init_z; f0=0, obj0=0)
-    return BregmanIterations(init_x, init_z, 0.0f0*init_z, f0, obj0, Vector{}(), Vector{}(), Vector{}(), Vector{}())
+    return BregmanIterations(1*init_x, 1*init_z, 0*init_z, f0, obj0, Vector{}(), Vector{}(), Vector{}(), Vector{}())
 end
