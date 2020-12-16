@@ -38,6 +38,6 @@ function linesearch(ls, sol::result, d::Array{T}, f::Function, g!::Function, fg!
         return ls(ϕ, dϕ, ϕdϕ, t, funRef, gtd)
     catch e
         @info "Line search failed"
-        return eps(T)*t, funRef
+        return 0, funRef
     end
 end

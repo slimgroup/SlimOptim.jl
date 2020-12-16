@@ -18,11 +18,14 @@ function obj(x)
     return fun, grad
 end
 
-opt = spg_options(maxIter=100, progTol=0, optTol=0, verbose=2)
-sol = spg(obj, randn(N), proj, opt)
+for ls in [BackTracking, HagerZhang, StrongWolfe]
+    opt = spg_options(maxIter=1000, progTol=1f-6, optTol=1f-6, verbose=2)
+    sol = spg(obj, randn(N), proj, opt, ls())
 
-@show norm(sol.x - x0)/(norm(x0) + norm(sol.x))
-@show sol.ϕ/sol.ϕ_trace[1]
+    @show norm(sol.x - x0)/(norm(x0) + norm(sol.x))
+    @show sol.ϕ/sol.ϕ_trace[1]
 
-@test sol.ϕ/sol.ϕ_trace[1]  < 1e-9
-@test norm(sol.x - x0)/(norm(x0) + norm(sol.x)) < 1f-4
+    ls == StrongWolfe && continue
+    @test sol.ϕ/sol.ϕ_trace[1]  < 1e-9
+    @test norm(sol.x - x0)/(norm(x0) + norm(sol.x)) < 1f-4
+end

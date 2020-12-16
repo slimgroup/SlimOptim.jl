@@ -1,18 +1,18 @@
 mutable struct PQN_params
-    verbose
-    optTol
-    progTol
-    maxIter
-    suffDec
-    corrections
-    adjustStep
-    bbInit
-    store_trace
-    SPGoptTol
-    SPGprogTol
-    SPGiters
-    SPGtestOpt
-    maxLinesearchIter
+    verbose::Integer
+    optTol::Real
+    progTol::Real
+    maxIter::Integer
+    suffDec::Real
+    corrections::Integer
+    adjustStep::Bool
+    bbInit::Bool
+    store_trace::Bool
+    SPGoptTol::Real
+    SPGprogTol::Real
+    SPGiters::Integer
+    SPGtestOpt::Bool
+    maxLinesearchIter::Integer
 end
 
 """
@@ -128,6 +128,11 @@ function _pqn(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
     nVars = length(x)
     spg_opt = spg_options(optTol=options.SPGoptTol,progTol=options.SPGprogTol, maxIter=options.SPGiters,
                           testOpt=options.SPGtestOpt, feasibleInit=~options.bbInit, verbose=0)
+
+    # Line search function
+    isnothing(ls) && (ls = BackTracking{T}(order=3, iterations=options.maxLinesearchIter))
+    checkls(ls)
+
     # Output Parameter Settings
     if options.verbose > 0
        @printf("Running PQN...\n");
@@ -140,11 +145,8 @@ function _pqn(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
        @printf("PQN progress tolerance: %.2e\n",options.progTol)
        @printf("Quadratic initialization of line search: %d\n",options.adjustStep)
        @printf("Maximum number of iterations: %d\n",options.maxIter)
+       @printf("Line search: %s\n", typeof(ls))
     end
-
-    # Line search function
-    isnothing(ls) && (ls = BackTracking{T}(order=3, iterations=options.maxLinesearchIter))
-    checkls(ls)
 
     # Project initial parameter vector
     x = projection(x)

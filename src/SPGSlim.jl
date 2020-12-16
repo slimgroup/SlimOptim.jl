@@ -1,20 +1,20 @@
 mutable struct SPG_params
-    verbose
-    optTol
-    progTol
-    maxIter
-    suffDec
-    memory
-    useSpectral
-    curvilinear
-    feasibleInit
-    testOpt
-    bbType
-    testInit
-    store_trace
-    optNorm
-    iniStep
-    maxLinesearchIter
+    verbose::Integer
+    optTol::Real
+    progTol::Real
+    maxIter::Integer
+    suffDec::Real
+    memory::Integer
+    useSpectral::Bool
+    curvilinear::Bool
+    feasibleInit::Bool
+    testOpt::Bool
+    bbType::Bool
+    testInit::Bool
+    store_trace::Bool
+    optNorm::Union{Real, Integer}
+    iniStep::Bool
+    maxLinesearchIter::Integer
 end
 """
     spg_options(;verbose=3,optTol=1f-5,progTol=1f-7,
@@ -49,7 +49,7 @@ function spg_options(;verbose=1,optTol=1f-5,progTol=1f-7,
                      maxIter=20,suffDec=1f-4,memory=2,
                      useSpectral=true,curvilinear=false,
                      feasibleInit=false,testOpt=true,
-                     bbType=1,testInit=false, store_trace=false,
+                     bbType=true,testInit=false, store_trace=false,
                      optNorm=Inf,iniStep=1f0, maxLinesearchIter=20)
     return SPG_params(verbose,optTol,progTol,
                       Int64(maxIter),suffDec,memory,
@@ -158,7 +158,7 @@ function _spg(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
 
     # Output Log
     options.testOpt ? optCond = norm(projection(x-g)-x, options.optNorm) : optCond = 0
-    init_log(ϕ, norm(projection(x-g)-x, options.optNorm), options)  
+    init_log(ϕ, norm(projection(x-g)-x, options.optNorm), options, ls)
 
     # Optionally check optimality
     if options.testOpt && options.testInit
@@ -176,7 +176,7 @@ function _spg(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
         else
             y = g - sol.g
             s = x - sol.x
-            options.bbType == 1 ? alpha = dot(s,s)/dot(s,y) : alpha = dot(s,y)/dot(y,y)
+            options.bbType ? alpha = dot(s,s)/dot(s,y) : alpha = dot(s,y)/dot(y,y)
         end
         # Make sure alpha value is valid
         (alpha <= 1e-10 || alpha > 1e10 || ~isLegal(alpha)) && (alpha = T(1))
@@ -237,7 +237,7 @@ end
 """
 Loging utilities
 """
-function init_log(ϕ, optCond, options)
+function init_log(ϕ, optCond, options, ls)
     if options.verbose > 0
         @printf("Running SPG...\n");
         @printf("Number of objective function to store: %d\n",options.memory);
@@ -245,6 +245,7 @@ function init_log(ϕ, optCond, options)
         @printf("Maximum number of iterations: %d\n",options.maxIter);
         @printf("SPG optimality tolerance: %.2e\n",options.optTol);
         @printf("SPG progress tolerance: %.2e\n",options.progTol);
+        @printf("Line search: %s\n", typeof(ls))
      end
     if options.verbose > 0
         if options.testOpt
