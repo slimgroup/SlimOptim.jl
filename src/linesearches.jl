@@ -17,7 +17,7 @@ Line search interface to LineSearches.jl
 - `gvec`: prealocated array for thhe gradient
 
 """
-function linesearch(ls, sol::result, d::Array{T}, f::Function, g!::Function, fg!::Function,
+function linesearch(ls, sol::result, d::AbstractArray{T}, f::Function, g!::Function, fg!::Function,
                     t::T, funRef::T, gtd::T, gvec::AbstractArray{T}) where T
     # Univariate line search functions
     ϕ(α) = f(sol.x .+ α.*d)

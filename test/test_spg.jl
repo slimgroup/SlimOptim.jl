@@ -25,7 +25,6 @@ for ls in [BackTracking, HagerZhang, StrongWolfe]
     @show norm(sol.x - x0)/(norm(x0) + norm(sol.x))
     @show sol.ϕ/sol.ϕ_trace[1]
 
-    ls == StrongWolfe && continue
     @test sol.ϕ/sol.ϕ_trace[1]  < 1e-9
     @test norm(sol.x - x0)/(norm(x0) + norm(sol.x)) < 1f-4
 end

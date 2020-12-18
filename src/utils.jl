@@ -32,19 +32,23 @@ isLegal(v::T) where T = (!isnan(v) && !isinf(v))
 
 function terminate(options, optCond, t, d, ϕ, ϕ_old)
     ~isLegal(ϕ) && return true
+    ~isLegal(d) && return true
     # Check optimality
     if optCond < options.optTol
-        options.verbose >= 1 &&  @printf("First-Order Optimality Conditions Below optTol\n")
+        options.verbose >= 1 &&  @printf("First-Order Optimality Conditions %2.2e Below optTol %2.2e\n",
+                                         optCond, options.optTol)
         return true
     end
 
     if norm(t*d, Inf) < options.progTol
-        options.verbose >= 1 && @printf("Step size below progTol\n")
+        options.verbose >= 1 && @printf("Step size: %2.2e below progTol: %2.2e\n",
+                                        norm(t*d, Inf), options.progTol)
         return true
     end
 
     if abs.(ϕ-ϕ_old) < options.progTol
-        options.verbose >= 1 && @printf("Function value changing by less than progTol\n")
+        options.verbose >= 1 && @printf("Function value changing by less than progTol (%2.2e < %2.2e)\n",
+                                        abs.(ϕ-ϕ_old), options.progTol)
         return true
     end
     t == 0 && return true

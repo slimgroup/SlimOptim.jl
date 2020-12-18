@@ -45,8 +45,8 @@ Options structure for Spectral Project Gradient algorithm.
 - `iniStep`: Initial step length estimate (default: 1)
 - `maxLinesearchIter`: Maximum number of line search iteration (default: 20)
 """
-function spg_options(;verbose=1,optTol=1f-5,progTol=1f-7,
-                     maxIter=20,suffDec=1f-4,memory=2,
+function spg_options(;verbose=1,optTol=1f-10,progTol=1f-10,
+                     maxIter=20,suffDec=1f-8,memory=2,
                      useSpectral=true,curvilinear=false,
                      feasibleInit=false,testOpt=true,
                      bbType=true,testInit=false, store_trace=false,
@@ -212,11 +212,10 @@ function _spg(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
         g == sol.g && grad!(g, x)
 
         # Check conditioning
-        if options.testOpt
-            optCond = norm(projection(x-g)-x, options.optNorm)
-        end
+        options.testOpt ? optCond = norm(projection(x-g)-x, options.optNorm) : optCond = Inf
+
         # Check if terminate
-        i>1 && (terminate(options, norm(projection(x-g)-x, options.optNorm), t, d, ϕ, sol.ϕ) && break)
+        i>1 && (terminate(options, optCond, t, d, ϕ, sol.ϕ) && break)
 
         # Take step
         if ϕ < ϕ_best
