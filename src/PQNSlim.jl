@@ -185,8 +185,8 @@ function _pqn(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
     Y = zeros(T, nVars, 0)
     d = similar(x)
     p = similar(x)
-    y = zeros(T, nVars)
-    s = zeros(T, nVars)
+    y = similar(x)
+    s = similar(x)
 
     Hdiag = 1
 
@@ -197,7 +197,7 @@ function _pqn(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
         else
             @. y = g - sol.g
             @. s = x - sol.x
-            S, Y, Hdiag = lbfgsUpdate(y, s, options.corrections, S, Y, Hdiag)
+            S, Y, Hdiag = lbfgsUpdate(y[1:end], s[1:end], options.corrections, S, Y, Hdiag)
 
             # Make Compact Representation
             k = size(Y, 2)
