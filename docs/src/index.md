@@ -25,7 +25,6 @@ The algorithms uses the following options:
 spg_options
 ```
 
-
 ## PQN
 
 Projected Quasi-Newton algorithm adapted from [min_Conf](https://www.cs.ubc.ca/~schmidtm/Software/minConf.html) for constrained optimization.
@@ -51,3 +50,4 @@ bregman_options
 ```@docs
 bregman
 ```
+
