@@ -1,3 +1,7 @@
+# Author: Mathias Louboutin, mlouboutin3@gatech.edu
+# Date: December 2020
+
+
 using SlimOptim, LinearAlgebra, JOLI, TestImages
 
 img = Float32.(testimage("lena_gray_16bit.png")[1:2:end, 1:2:end])

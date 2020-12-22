@@ -3,6 +3,9 @@
 # Date: December 2017
 #
 # Install JUDI if not installed
+# Author: Mathias Louboutin, mlouboutin3@gatech.edu
+# Updated: December 2020
+
 
 using LinearAlgebra, PyPlot, SlimOptim
 using JUDI, JUDI.TimeModeling, HDF5, SegyIO

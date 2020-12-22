@@ -1,4 +1,7 @@
-export isLegal, lbfgsUpdate, lbfgsHvFunc2, ssbin, solveSubProblem, subHv, result, soft_thresholding
+# Author: Mathias Louboutin, mlouboutin3@gatech.edu
+# Date: December 2020
+
+export isLegal, lbfgsUpdate, lbfgsHvFunc2, ssbin, solveSubProblem!, subHv, result, soft_thresholding
 
 mutable struct result{T}
     x::AbstractArray{T}
@@ -46,9 +49,9 @@ function terminate(options, optCond, t, d, ϕ, ϕ_old)
         return true
     end
 
-    if abs.(ϕ-ϕ_old) < options.progTol
-        options.verbose >= 1 && @printf("Function value changing by less than progTol (%2.2e < %2.2e)\n",
-                                        abs.(ϕ-ϕ_old), options.progTol)
+    if norm(d, Inf) < options.progTol
+        options.verbose >= 1 && @printf("Update direction smaller than progTol (%2.2e < %2.2e)\n",
+                                         norm(d, Inf), options.progTol)
         return true
     end
     t == 0 && return true
@@ -137,12 +140,12 @@ function ssbin(A::AbstractArray{T, N}, nmv) where {T, N}
     return 1 ./(d.*dp).^(T(.25))
 end
 
-function solveSubProblem(x::AbstractArray{T}, g::AbstractArray{T}, H,
+function solveSubProblem!(p::AbstractArray{T}, x::AbstractArray{T}, g::AbstractArray{T}, H,
                          funProj::Function, options, x_init::AbstractArray{T}) where T
     # Uses SPG to solve for projected quasi-Newton direction
-    funObj(p) = subHv(p, x, g, H)
+    funObj(γ) = subHv(γ, x[1:end], g[1:end], H)
     sol = spg(funObj, x_init, funProj, options)
-    return sol.x
+    p .= sol.x
 end
 
 function subHv(p::AbstractArray{T}, x::AbstractArray{T}, g::AbstractArray{T}, HvFunc::Function) where T

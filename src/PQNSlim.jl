@@ -1,3 +1,6 @@
+# Author: Mathias Louboutin, mlouboutin3@gatech.edu
+# Date: December 2020
+
 mutable struct PQN_params
     verbose::Integer
     optTol::Real
@@ -171,7 +174,11 @@ function _pqn(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
     # Initialize variables
     S = zeros(T, nVars, 0)
     Y = zeros(T, nVars, 0)
-    d = zeros(T, nVars)
+    d = similar(x)
+    p = similar(x)
+    y = zeros(T, nVars)
+    s = zeros(T, nVars)
+
     Hdiag = 1
 
     for i=1:options.maxIter
@@ -179,8 +186,8 @@ function _pqn(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
         if i == 1
             p = projection(x-g)
         else
-            y = g - sol.g
-            s = x - sol.x
+            @. y = g - sol.g
+            @. s = x - sol.x
             S, Y, Hdiag = lbfgsUpdate(y, s, options.corrections, S, Y, Hdiag)
 
             # Make Compact Representation
@@ -205,16 +212,13 @@ function _pqn(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
                 xSubInit = x
             end
             # Solve Sub-problem
-            p = solveSubProblem(x, g, HvFunc, projection, spg_opt, xSubInit)
+            solveSubProblem!(p, x, g, HvFunc, projection, spg_opt, xSubInit)
         end
         @. d = p - x
 
-        # Check that Progress can be made along the direction
+        # Directional derivative
         gtd = dot(g, d)
-        if gtd > -options.progTol && (i > options.corrections/2)
-            options.verbose > 0 && @printf("Directional Derivative below progTol\n")
-            break
-        end
+
         # Select Initial Guess to step length
         (~options.adjustStep || gtd == 0 || i==1) ? t = T(1) : t = T(min(1, 2*(ϕ-sol.ϕ)/gtd))
 

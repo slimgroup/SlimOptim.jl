@@ -1,3 +1,6 @@
+# Author: Mathias Louboutin, mlouboutin3@gatech.edu
+# Date: December 2020
+
 mutable struct BregmanParams
     verbose
     progTol

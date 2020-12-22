@@ -2,6 +2,9 @@
 # Author: Philipp Witte, pwitte@eoas.ubc.ca
 # Date: December 2017
 #
+# Author: Mathias Louboutin, mlouboutin3@gatech.edu
+# Updated: December 2020
+
 
 using Statistics, Random, LinearAlgebra
 using JUDI, JUDI.TimeModeling, SlimOptim, HDF5, SegyIO, PyPlot

@@ -1,3 +1,6 @@
+# Author: Mathias Louboutin, mlouboutin3@gatech.edu
+# Date: December 2020
+
 mutable struct SPG_params
     verbose::Integer
     optTol::Real
@@ -141,9 +144,9 @@ function _spg(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
     # Initialize local variables
     nVars = length(x)
     options.memory > 1 && (old_ϕvals = -T(Inf)*ones(T, options.memory))
-    d = zeros(T, nVars)
+    d = similar(x)
     optCond = 0
-    # Result structure
+    # Best solution
     x_best = x
 
     # Line search function
@@ -190,10 +193,6 @@ function _spg(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
 
         # Check that Progress can be made along the direction
         gtd = dot(g,d)
-        if gtd > -options.progTol && i>1
-            options.verbose > 0 &&  @printf("Directional Derivative below progTol\n")
-            break
-        end
 
         # Select Initial Guess to step length
         t = T(options.iniStep)
@@ -217,7 +216,7 @@ function _spg(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
         # Check if terminate
         i>1 && (terminate(options, optCond, t, d, ϕ, sol.ϕ) && break)
 
-        # Take step
+        # Check if better than best solution
         if ϕ < ϕ_best
             x_best = x
             ϕ_best = ϕ

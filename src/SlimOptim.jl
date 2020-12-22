@@ -1,5 +1,7 @@
-module SlimOptim
+# Author: Mathias Louboutin, mlouboutin3@gatech.edu
+# Date: December 2020
 
+module SlimOptim
 
 using Printf, LinearAlgebra, LineSearches
 
