@@ -27,9 +27,13 @@ jobs:
           - '1.5'
         os:
           - ubuntu-latest
-          - macos-latest
         arch:
           - x64
+
+        include:
+          - os: macos-latest
+            version: '1.5'
+            arch: x64
 
     steps:
       - name: Checkout SlimOptim

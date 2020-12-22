@@ -16,7 +16,7 @@ mutable struct SPG_params
     testInit::Bool
     store_trace::Bool
     optNorm::Union{Real, Integer}
-    iniStep::Bool
+    iniStep::Real
     maxLinesearchIter::Integer
 end
 """
@@ -53,7 +53,7 @@ function spg_options(;verbose=1,optTol=1f-10,progTol=1f-10,
                      useSpectral=true,curvilinear=false,
                      feasibleInit=false,testOpt=true,
                      bbType=true,testInit=false, store_trace=false,
-                     optNorm=Inf,iniStep=1f0, maxLinesearchIter=20)
+                     optNorm=Inf,iniStep=1, maxLinesearchIter=20)
     return SPG_params(verbose,optTol,progTol,
                       Int64(maxIter),suffDec,memory,
                       useSpectral,curvilinear,
@@ -217,10 +217,7 @@ function _spg(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
         i>1 && (terminate(options, optCond, t, d, ϕ, sol.ϕ) && break)
 
         # Check if better than best solution
-        if ϕ < ϕ_best
-            x_best = x
-            ϕ_best = ϕ
-        end
+        ϕ < ϕ_best && (x_best = x; ϕ_best = ϕ)
 
         # Output Log
         iter_log(i, sol, t, alpha, ϕ, optCond, options)

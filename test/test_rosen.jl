@@ -28,7 +28,7 @@ end
 niter = 1000
 for (opt, algo)=zip([spg_options, pqn_options], [spg, pqn])
     x0 = zeros(2)
-    options = opt(maxIter=niter, progTol=1f-30, optTol=0)
+    options = opt(maxIter=niter, progTol=1f-30, optTol=0, iniStep=2, memory=5)
     algo(obj,x0,prj,options)
     @test x0 ≈ [1, 1]
 

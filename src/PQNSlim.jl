@@ -16,6 +16,8 @@ mutable struct PQN_params
     SPGiters::Integer
     SPGtestOpt::Bool
     maxLinesearchIter::Integer
+    memory::Integer
+    iniStep::Real
 end
 
 """
@@ -42,14 +44,17 @@ Options structure for Spectral Project Gradient algorithm.
 - `SPGiters`: maximum number of iterations for SPG direction finding (default:10)
 - `SPGtestOpt`: Whether to check for optimality in SPG (default: false)
 - `maxLinesearchIter`: Maximum number of line search iteration (default: 20)
+- `memory`: Number of steps for the non-monotone functional decrease condition.
+- `iniStep`: Initial step length estimate (default: 1). Ignored with adjustStep.
 """
 function pqn_options(;verbose=1, optTol=1f-5, progTol=1f-7,
                      maxIter=20, suffDec=1f-4, corrections=10, adjustStep=false,
                      bbInit=true, store_trace=false, SPGoptTol=1f-6, SPGprogTol=1f-7,
-                     SPGiters=100, SPGtestOpt=false, maxLinesearchIter=20)
+                     SPGiters=100, SPGtestOpt=false, maxLinesearchIter=20, memory=1, iniStep=1)
     return PQN_params(verbose, optTol ,progTol, Int64(maxIter), suffDec, corrections,
                       adjustStep, bbInit, store_trace, SPGoptTol,
-                      SPGprogTol, SPGiters, SPGtestOpt, Int64(maxLinesearchIter))
+                      SPGprogTol, SPGiters, SPGtestOpt, Int64(maxLinesearchIter),
+                      memory, iniStep)
 end
 
 """
@@ -129,6 +134,7 @@ Low level PQN solver
 function _pqn(obj::Function, grad!::Function, objgrad!::Function, projection::Function,
               x::AbstractArray{T}, g::AbstractArray{T}, sol::result, ls, options::PQN_params) where {T}
     nVars = length(x)
+    options.memory > 1 && (old_ϕvals = -T(Inf)*ones(T, options.memory))
     spg_opt = spg_options(optTol=options.SPGoptTol,progTol=options.SPGprogTol, maxIter=options.SPGiters,
                           testOpt=options.SPGtestOpt, feasibleInit=~options.bbInit, verbose=0)
 
@@ -150,12 +156,15 @@ function _pqn(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
        @printf("Maximum number of iterations: %d\n",options.maxIter)
        @printf("Line search: %s\n", typeof(ls))
     end
+    # Best solution
+    x_best = x
 
     # Project initial parameter vector
     x = projection(x)
 
     # Evaluate initial parameters
     ϕ = objgrad!(g, x)
+    ϕ_best = ϕ
     update!(sol; iter=1, ϕ=ϕ, x=x, g=g, store_trace=options.store_trace)
 
     # Output Log
@@ -220,19 +229,31 @@ function _pqn(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
         gtd = dot(g, d)
 
         # Select Initial Guess to step length
-        (~options.adjustStep || gtd == 0 || i==1) ? t = T(1) : t = T(min(1, 2*(ϕ-sol.ϕ)/gtd))
+        (~options.adjustStep || gtd == 0 || i==1) ? t = T(options.iniStep) : t = T(min(1, 2*(ϕ-sol.ϕ)/gtd))
 
         # Save history
         i>1 && update!(sol; iter=i, ϕ=ϕ, x=x, g=g, store_trace=options.store_trace)
 
+        # Compute reference function for non-monotone condition
+        if options.memory == 1
+            ϕ_ref = ϕ
+        else
+            i <= options.memory ? old_ϕvals[i] = ϕ : old_ϕvals = [old_ϕvals[2:end];ϕ]
+            ϕ_ref = maximum(old_ϕvals)
+        end
+        
         # Line search
-        t, ϕ = linesearch(ls, sol, d, obj, grad!, objgrad!, t, sol.ϕ, gtd, g)
+        t, ϕ = linesearch(ls, sol, d, obj, grad!, objgrad!, t, ϕ_ref, gtd, g)
         x .= projection(sol.x + t*d)
         g == sol.g && grad!(g, x)
 
         # Check termination
 	    optCond = norm(projection(x-g) - x, Inf)
         i>1 && (terminate(options, optCond, t, d, ϕ, sol.ϕ) && break)
+    
+        # Check if better than best solution
+        ϕ < ϕ_best && (x_best = x; ϕ_best = ϕ)
+
         # Output Log
         if options.verbose > 0
             @printf("%10d %10d %10d %10d %15.5e %15.5e %15.5e\n",i,sol.n_ϕeval, sol.n_geval, sol.n_project, t, ϕ, optCond)
