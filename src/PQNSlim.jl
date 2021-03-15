@@ -134,7 +134,7 @@ Low level PQN solver
 function _pqn(obj::Function, grad!::Function, objgrad!::Function, projection::Function,
               x::AbstractArray{T}, g::AbstractArray{T}, sol::result, ls, options::PQN_params) where {T}
     nVars = length(x)
-    options.memory > 1 && (old_ϕvals = -T(Inf)*ones(T, options.memory))
+    old_ϕvals = -T(Inf)*ones(T, options.memory)
     spg_opt = spg_options(optTol=options.SPGoptTol,progTol=options.SPGprogTol, maxIter=options.SPGiters,
                           testOpt=options.SPGtestOpt, feasibleInit=~options.bbInit, verbose=0)
 
@@ -235,15 +235,10 @@ function _pqn(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
         i>1 && update!(sol; iter=i, ϕ=ϕ, x=x, g=g, store_trace=options.store_trace)
 
         # Compute reference function for non-monotone condition
-        if options.memory == 1
-            ϕ_ref = ϕ
-        else
-            i <= options.memory ? old_ϕvals[i] = ϕ : old_ϕvals = [old_ϕvals[2:end];ϕ]
-            ϕ_ref = maximum(old_ϕvals)
-        end
+        old_ϕvals[i%options.memory + 1] = T(ϕ)
         
         # Line search
-        t, ϕ = linesearch(ls, sol, d, obj, grad!, objgrad!, t, ϕ_ref, gtd, g)
+        t, ϕ = linesearch(ls, sol, d, obj, grad!, objgrad!, t, maximum(old_ϕvals), gtd, g)
         x .= projection(sol.x + t*d)
         g == sol.g && grad!(g, x)
 

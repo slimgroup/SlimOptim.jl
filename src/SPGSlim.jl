@@ -143,7 +143,7 @@ function _spg(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
               x::AbstractArray{T}, g::AbstractArray{T}, sol::result, ls, options::SPG_params) where {T}
     # Initialize local variables
     nVars = length(x)
-    options.memory > 1 && (old_ϕvals = -T(Inf)*ones(T, options.memory))
+    old_ϕvals = -T(Inf)*ones(T, options.memory)
     d = similar(x)
     optCond = 0
     # Best solution
@@ -198,15 +198,10 @@ function _spg(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
         t = T(options.iniStep)
 
         # Compute reference function for non-monotone condition
-        if options.memory == 1
-            ϕ_ref = ϕ
-        else
-            i <= options.memory ? old_ϕvals[i] = ϕ : old_ϕvals = [old_ϕvals[2:end];ϕ]
-            ϕ_ref = maximum(old_ϕvals)
-        end
+        old_ϕvals[i%options.memory + 1] = T(ϕ)
 
         # Line search
-        t, ϕ = linesearch(ls, sol, d, obj, grad!, objgrad!, t, ϕ_ref, gtd, g)
+        t, ϕ = linesearch(ls, sol, d, obj, grad!, objgrad!, t, maximum(old_ϕvals), gtd, g)
         x .= projection(sol.x + t*d)
         g == sol.g && grad!(g, x)
 

@@ -3,6 +3,10 @@
 
 export linesearch
 
+linesearch(ls, sol::result, d::AbstractArray{T}, f::Function, g!::Function, fg!::Function,
+           t, funRef, gtd, gvec::AbstractArray{T}) where T =
+        linesearch(ls, sol, d, f, g!, fg!, T(t), T(funRef), T(gtd), gvec)
+
 """
     linesearch(ls, sol, d, f, g!, fg!, t, funRef, gtd, gvec)
 
