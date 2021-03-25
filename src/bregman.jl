@@ -9,11 +9,12 @@ mutable struct BregmanParams
     antichatter
     quantile
     alpha
+    spg
 end
 
 """
     bregman_options(;verbose=1, optTol=1e-6, progTol=1e-8, maxIter=20
-                    store_trace=false, linesearch=false, alpha=.25)
+                    store_trace=false, linesearch=false, alpha=.25, spg=false)
 
 Options structure for the bregman iteration algorithm
 
@@ -28,8 +29,8 @@ Options structure for the bregman iteration algorithm
 - `alpha`: Strong convexity modulus. (step length is ``α \\frac{||r||_2^2}{||g||_2^2}``)
 
 """
-bregman_options(;verbose=1, progTol=1e-8, maxIter=20, store_trace=false, antichatter=true, quantile=.95, alpha=.5) =
-                BregmanParams(verbose, progTol, maxIter, store_trace, antichatter, quantile, alpha)
+bregman_options(;verbose=1, progTol=1e-8, maxIter=20, store_trace=false, antichatter=true, quantile=.95, alpha=.5, spg=false) =
+                BregmanParams(verbose, progTol, maxIter, store_trace, antichatter, quantile, alpha, spg)
 
 """
     bregman(A, TD, x, b, options)
@@ -88,8 +89,9 @@ function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams, 
     # Intitalize variables
     z = TD*x
     d = similar(z)
+    options.spg && (gold = similar(x); xold=similar(x))
     if options.antichatter
-        tk = similar(z)
+        tk = zeros(T, size(z))
     end
 
     # Result structure
@@ -108,7 +110,7 @@ function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams, 
         # Preconditionned ipdate direction
         d .= -TD*g
         # Step length
-        t = T(options.alpha*f/norm(d)^2)
+        t = (options.spg && i> 1) ? T(dot(x-xold, x-xold)/dot(x-xold, g-gold)) : T(options.alpha*f/norm(d)^2)
 
         # Anti-chatter
         if options.antichatter  
@@ -122,6 +124,8 @@ function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams, 
         @. z = z + d
         # Get λ at first iteration
         i == 1 && (λ = T(quantile(abs.(z), options.quantile)))
+        # Save curent state
+        options.spg && (gold .= g; xold .= x)
         # Update x
         x = TD'*soft_thresholding(z, λ)
 
