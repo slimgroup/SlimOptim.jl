@@ -114,7 +114,7 @@ function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams, 
 
         # Anti-chatter
         if options.antichatter  
-            @. tk = tk + sign.(g)
+            @. tk = tk - sign.(d)
             # Chatter correction
             inds_z = findall(abs.(z) .> λ)
             mul!(d, d, t)

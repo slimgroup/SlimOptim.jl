@@ -3,10 +3,11 @@
 
 
 using SlimOptim, LinearAlgebra, JOLI, TestImages, PyPlot
+import TestImages: Gray
 
-img = Float32.(testimage("lena_gray_16bit.png")[1:2:end, 1:2:end])
+img = Float32.(Gray.(testimage("lighthouse.png")[1:2:end, 129:2:end-128]))
 
-n = 128
+n = 256
 k = 4
 # Sparse in wavelet domain
 W = joDWT(n, n; DDT=Float32, RDT=Float32)
@@ -22,8 +23,8 @@ b = A*vec(imgn)
 opt = bregman_options(maxIter=200, verbose=2, quantile=.5, alpha=1, antichatter=true)
 opt2 = bregman_options(maxIter=200, verbose=2, quantile=.5, alpha=1, antichatter=true, spg=true)
 
-sol = bregman(A, W, zeros(Float32, 128*128), b, opt)
-sol2 = bregman(A, W, zeros(Float32, 128*128), b, opt2)
+sol = bregman(A, W, zeros(Float32, n*n), b, opt)
+sol2 = bregman(A, W, zeros(Float32, n*n), b, opt2)
 
 figure()
 subplot(121)
@@ -33,17 +34,18 @@ subplot(122)
 loglog(sol.r_trace, label="std");loglog(sol2.r_trace, label="spg");
 legend()
 
+
 figure();
 subplot(221)
 imshow(img, cmap="Greys", vmin=-.5, vmax=.5)
 title("True")
 subplot(222)
-imshow(reshape(b, 128, k*128), cmap="Greys", vmin=-.5, vmax=.5)
+imshow(reshape(b, n, k*n), cmap="Greys", vmin=-.5, vmax=.5)
 title("Measurment")
 subplot(223)
-imshow(reshape(sol2.x, 128, 128), cmap="Greys", vmin=-.5, vmax=.5)
+imshow(reshape(sol2.x, n, n), cmap="Greys", vmin=-.5, vmax=.5)
 title("recovered")
 subplot(224)
-imshow(img - reshape(sol2.x, 128, 128), cmap="Greys", vmin=-.05, vmax=.05)
+imshow(img - reshape(sol2.x, n, n), cmap="Greys", vmin=-.05, vmax=.05)
 title("Difference x10")
 tight_layout()
