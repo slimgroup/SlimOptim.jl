@@ -101,7 +101,7 @@ function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams, 
 
     # Output Log
     if options.verbose > λ
-        @printf("%10s %15s %15s %15s %5s\n","Iteration","Step Length", "Bregman residual", "||A*x - b||_2^2", "λ")
+        @printf("%10s %15s %15s %15s %5s\n","Iteration","Step Length", "L1-2    ", "||A*x - b||_2^2", "λ")
     end
 
     # Iterations
