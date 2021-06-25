@@ -5,8 +5,7 @@
 [![Build Status](https://github.com/slimgroup/SlimOptim.jl/workflows/CI-SLimOptim/badge.svg)](https://github.com/slimgroup/SlimOptim.jl/actions?query=workflow%3ACI-SLimOptim)
 [![DOI](https://zenodo.org/badge/314640400.svg)](https://zenodo.org/badge/latestdoi/314640400)
 
-Package of optimizations functions forl arge scale inversion. In these implementations, the algorithm itself is 
-not optimized fot speed as this oackage is designed for inverse problems where the function evaluation is the main cost (~hours for a single function + gradient evaluation) making the algorithm speed minimal.
+Package of optimizations functions for large scale inversion. In these implementations, the algorithm itself is not optimized for speed as this package is designed for inverse problems where the function evaluation is the main cost (~hours for a single objective + gradient evaluation) making the algorithm speed minimal.
 
 # Installation
 
@@ -29,9 +28,9 @@ This repository currently contains three algorithms.
 
 - Spectral Projected Gradient (`spg`)
 - Projected Quasi Newton (`pqn`)
-- Linearized bregman (`bregman`) (in development)
+- Linearized Bregman (`bregman`) (in development)
 
-SPG and PQN are using a linesearch at each iteration. In both cases, the default line search is `BackTracking(order=3, iterations=options.maxLinesearchIter)`. This default can be modified passing the linesearch function as an input, i.e, `spg(...., linesearch=linesearch)`. We currently support all but only line searches from [LineSearches.jl](https://github.com/JuliaNLSolvers/LineSearches.jl).
+SPG and PQN are using a linesearch at each iteration. In both cases, the default line search is `BackTracking(order=3, iterations=options.maxLinesearchIter)`. This default can be modified passing the linesearch function as an input, i.e, `spg(...., linesearch=linesearch)`. We currently support line searches from [LineSearches.jl](https://github.com/JuliaNLSolvers/LineSearches.jl).
 
 # Usage
 
