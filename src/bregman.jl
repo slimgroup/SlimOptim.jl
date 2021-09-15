@@ -91,7 +91,7 @@ function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams, 
     d = similar(z)
     options.spg && (gold = similar(x); xold=similar(x))
     if options.antichatter
-        tk = zeros(T, size(z))
+        tk = 0 * z
     end
 
     # Result structure
@@ -113,7 +113,7 @@ function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams, 
         t = (options.spg && i> 1) ? T(dot(x-xold, x-xold)/dot(x-xold, g-gold)) : T(options.alpha*f/norm(d)^2)
 
         # Anti-chatter
-        if options.antichatter  
+        if options.antichatter
             @. tk = tk - sign.(d)
             # Chatter correction
             inds_z = findall(abs.(z) .> λ)
