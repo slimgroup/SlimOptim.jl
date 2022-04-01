@@ -85,7 +85,7 @@ function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams, 
         @printf("Maximum number of iterations: %d\n",options.maxIter)
         @printf("Anti-chatter correction: %d\n",options.antichatter)
     end
-    isnothing(TD) && (TD = Matrix{T}(I, length(x), length(x)))
+    isnothing(TD) && (TD = LinearAlgebra.I)
     # Intitalize variables
     z = TD*x
     d = similar(z)
@@ -97,10 +97,10 @@ function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams, 
     # Result structure
     sol = breglog(x, z)
     # Initialize λ
-    λ = T(0)
+    λ = abs(T(0))
 
     # Output Log
-    if options.verbose > λ
+    if options.verbose > 0
         @printf("%10s %15s %15s %15s %5s\n","Iteration","Step Length", "L1-2    ", "||A*x - b||_2^2", "λ")
     end
 
@@ -111,19 +111,20 @@ function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams, 
         d .= -TD*g
         # Step length
         t = (options.spg && i> 1) ? T(dot(x-xold, x-xold)/dot(x-xold, g-gold)) : T(options.alpha*f/norm(d)^2)
+        t = abs(t)
+        mul!(d, d, t)
 
         # Anti-chatter
         if options.antichatter
-            @. tk = tk - sign.(d)
+            @. tk = tk - sign(d)
             # Chatter correction
             inds_z = findall(abs.(z) .> λ)
-            mul!(d, d, t)
-            d[:] .*= abs.(tk[:])/i
+            @views d[inds_z] .*= abs.(tk[inds_z])/i
         end
         # Update z variable
         @. z = z + d
         # Get λ at first iteration
-        i == 1 && (λ = T(quantile(abs.(z), options.quantile)))
+        i == 1 && (λ = abs(T(quantile(abs.(z), options.quantile))))
         # Save curent state
         options.spg && (gold .= g; xold .= x)
         # Update x
