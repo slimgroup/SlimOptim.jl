@@ -9,17 +9,10 @@ Package of optimizations functions for large scale inversion. In these implement
 
 # Installation
 
-To install this package you can either add the SLIM Registry
+SlimOptim is registered and can be installed with the standard julia package manager:
 
 ```julia
-] registry add https://github.com/slimgroup/SLIMregistryJL.git
-] add SlimOptim
-```
-
-or directly install it by itself
-
-```julia
-] add https://github.com/slimgroup/SlimOptim.git
+] add/dev SlimOptim
 ```
 
 # Algorithms
