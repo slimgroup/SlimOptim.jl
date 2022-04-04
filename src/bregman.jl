@@ -8,6 +8,7 @@ mutable struct BregmanParams
     store_trace
     antichatter
     quantile
+    lambda
     alpha
     spg
 end
@@ -26,11 +27,12 @@ Options structure for the bregman iteration algorithm
 - `store_trace`: Whether to store the trace/history of x (default: false)
 - `antichatter`: Whether to use anti-chatter step length correction
 - `quantile`: Thresholding level as quantile value, (default=.95 i.e thresholds 95% of the vector)
+- `lambda`: Thresholding level, (default=nothing then quantile will be used to determine the threshold)
 - `alpha`: Strong convexity modulus. (step length is ``α \\frac{||r||_2^2}{||g||_2^2}``)
 
 """
-bregman_options(;verbose=1, progTol=1e-8, maxIter=20, store_trace=false, antichatter=true, quantile=.95, alpha=.5, spg=false) =
-                BregmanParams(verbose, progTol, maxIter, store_trace, antichatter, quantile, alpha, spg)
+bregman_options(;verbose=1, progTol=1e-8, maxIter=20, store_trace=false, antichatter=true, quantile=.95, lambda=nothing, alpha=.5, spg=false) =
+                BregmanParams(verbose, progTol, maxIter, store_trace, antichatter, quantile, lambda, alpha, spg)
 
 """
     bregman(A, TD, x, b, options)
@@ -124,7 +126,7 @@ function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams, 
         # Update z variable
         @. z = z + d
         # Get λ at first iteration
-        i == 1 && (λ = abs(T(quantile(abs.(z), options.quantile))))
+        i == 1 && (sol.λ = λ = isnothing(options.lambda) ? abs(T(quantile(abs.(z), options.quantile))) : abs(T(options.lambda)))
         # Save curent state
         options.spg && (gold .= g; xold .= x)
         # Update x
@@ -170,6 +172,7 @@ mutable struct BregmanIterations
     z
     g
     ϕ
+    λ
     residual
     ϕ_trace
     r_trace
@@ -189,6 +192,6 @@ function update!(r::BregmanIterations; x=nothing, z=nothing, ϕ=nothing, residua
     (~isnothing(residual) && length(r.r_trace) == iter-1) && (push!(r.r_trace, residual))
 end
 
-function breglog(init_x, init_z; f0=0, obj0=0)
-    return BregmanIterations(1*init_x, 1*init_z, 0*init_z, f0, obj0, Vector{}(), Vector{}(), Vector{}(), Vector{}())
+function breglog(init_x, init_z; lambda0=0, f0=0, obj0=0)
+    return BregmanIterations(1*init_x, 1*init_z, 0*init_z, f0, lambda0, obj0, Vector{}(), Vector{}(), Vector{}(), Vector{}())
 end
