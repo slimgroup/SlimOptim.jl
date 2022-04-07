@@ -45,10 +45,11 @@ For example, for sparsity promoting denoising (i.e LSRTM)
 
 # Arguments
 
-- `TD`: curvelet transform
-- `A`: Forward operator (J or preconditioned J for LSRTM)
+- `TD`: sparsifying transform (e.g. curvelet), default is nothing (i.e. identity)
+- `A`: Forward operator (e.g. J or preconditioned J for LSRTM)
 - `b`: observed data
 - `x`: Initial guess
+- `options`: bregman options
 """
 function bregman(A, TD, x::Array{T}, b, options) where {T}
     # residual function wrapper
@@ -73,13 +74,13 @@ For example, for sparsity promoting denoising (i.e LSRTM)
 
 # Arguments
 
-- `TD`: curvelet transform
+- `TD`: transform (default is nothing, i.e. identity)
+- `thresholdfunc`: function to obtain threshold λ from the dual variable z in the first iteration (default is nothing, i.e. following the options)
 - `fun`: residual function, return the tuple (``f = \\frac{1}{2}||Ax - b||_2``, ``g = A^T(Ax - b)``)
-- `b`: observed data
 - `x`: Initial guess
-
+- `options`: bregman options
 """
-function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams, TD=nothing) where {T}
+function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams; TD=nothing, thresholdfunc=nothing) where {T}
     # Output Parameter Settings
     if options.verbose > 0
         @printf("Running linearized bregman...\n");
@@ -126,15 +127,29 @@ function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams, 
         # Update z variable
         @. z = z + d
         # Get λ at first iteration
-        i == 1 && (sol.λ = λ = isnothing(options.lambda) ? abs(T(quantile(abs.(z), options.quantile))) : abs(T(options.lambda)))
+        if i == 1
+            if ~isnothing(thresholdfunc)
+                λ = thresholdfunc(z)
+            elseif ~isnothing(options.lambda)
+                λ = options.lambda
+            else
+                λ = quantile(abs.(z), options.quantile)
+            end
+            λ = abs.(T.(λ))
+            sol.λ = abs.(T.(λ))
+        end
         # Save curent state
         options.spg && (gold .= g; xold .= x)
         # Update x
         x = TD'*soft_thresholding(z, λ)
 
-        obj_fun = λ * norm(z, 1) + .5 * norm(z, 2)^2
+        obj_fun = norm(λ .* z, 1) + .5 * norm(z, 2)^2
         if options.verbose > 0
-            @printf("%10d %15.5e %15.5e %15.5e %15.5e \n",i, t, obj_fun, f, λ)
+            if length(λ) == 1
+                @printf("%10d %15.5e %15.5e %15.5e %15.5e \n",i, t, obj_fun, f, λ)
+            else
+                @printf("%10d %15.5e %15.5e %15.5e %5s \n",i, t, obj_fun, f, "vector")
+            end
         end
         norm(x - sol.x) < options.progTol && (@printf("Step size below progTol\n"); break;)
         update!(sol; iter=i, ϕ=obj_fun, residual=f, x=x, z=z, g=g, store_trace=options.store_trace)
