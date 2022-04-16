@@ -52,5 +52,5 @@ function breg_obj(x)
     return  .5f0*norm(r)^2, g[1:end]
 end
 
-opt = bregman_options(maxIter=5, verbose=2, quantile=.9, alpha=1, antichatter=true)#, spg=true)
-sol = bregman(breg_obj, 0f0.*vec(m0), opt, C)
+opt = bregman_options(maxIter=5, verbose=2, alpha=1, antichatter=true)#, spg=true)
+sol = bregman(breg_obj, 0f0.*vec(m0); options=opt, TD=C)

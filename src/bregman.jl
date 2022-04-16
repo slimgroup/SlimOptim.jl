@@ -7,8 +7,6 @@ mutable struct BregmanParams
     maxIter
     store_trace
     antichatter
-    quantile
-    lambda
     alpha
     spg
 end
@@ -31,11 +29,11 @@ Options structure for the bregman iteration algorithm
 - `alpha`: Strong convexity modulus. (step length is ``α \\frac{||r||_2^2}{||g||_2^2}``)
 
 """
-bregman_options(;verbose=1, progTol=1e-8, maxIter=20, store_trace=false, antichatter=true, quantile=.95, lambda=nothing, alpha=.5, spg=false) =
-                BregmanParams(verbose, progTol, maxIter, store_trace, antichatter, quantile, lambda, alpha, spg)
+bregman_options(;verbose=1, progTol=1e-8, maxIter=20, store_trace=false, antichatter=true, alpha=.5, spg=false) =
+                BregmanParams(verbose, progTol, maxIter, store_trace, antichatter, alpha, spg)
 
 """
-    bregman(A, TD, x, b, options)
+    bregman(A, x, b; options, TD, perc, λ, λfunc)
 
 Linearized bregman iteration for the system
 
@@ -43,15 +41,22 @@ Linearized bregman iteration for the system
 
 For example, for sparsity promoting denoising (i.e LSRTM)
 
-# Arguments
+# Required arguments
 
-- `TD`: sparsifying transform (e.g. curvelet), default is nothing (i.e. identity)
 - `A`: Forward operator (e.g. J or preconditioned J for LSRTM)
-- `b`: observed data
 - `x`: Initial guess
-- `options`: bregman options
+- `b`: observed data
+
+# Non-required arguments
+
+- `options`: bregman options, default is bregman_options()
+- `TD`: sparsifying transform (e.g. curvelet), default is nothing (i.e. identity)
+- `λfunc`: a function to calculate the threshold in the 1st iteration, default is nothing
+- `λ`: a pre-determined threshold, will only be used if `λfunc` is not defined, default is nothing
+- `perc`: a percentage to calculate the threshold by quantile of the dual variable in 1st iteration, will only be used if neither `λfunc` nor `λ` are defined, default is .95
 """
-function bregman(A, TD, x::Array{T}, b, options) where {T}
+
+function bregman(A, x::Array{T}, b; options=bregman_options(), TD=LinearAlgebra.I, perc=.95, λ=nothing, λfunc=nothing) where {T}
     # residual function wrapper
     function obj(x)
         d = A*x
@@ -59,28 +64,43 @@ function bregman(A, TD, x::Array{T}, b, options) where {T}
         grad = A'*(d - b)
         return fun, grad
     end
-    
-    return bregman(obj, x, options, TD)
+    return bregman(obj, x; options=options, TD=TD, perc=perc, λ=λ, λfunc=λfunc)
 end
 
 """
-    bregman(fun, TD, x, b, options)
+    bregman(funobj, x; options, TD, perc, λ, λfunc)
 
 Linearized bregman iteration for the system
 
 ``\\frac{1}{2} ||TD \\ x||_2^2 + λ ||TD \\ x||_1  \\ \\ \\ s.t Ax = b``
 
-For example, for sparsity promoting denoising (i.e LSRTM)
+# Required arguments
 
-# Arguments
-
-- `TD`: transform (default is nothing, i.e. identity)
-- `thresholdfunc`: function to obtain threshold λ from the dual variable z in the first iteration (default is nothing, i.e. following the options)
-- `fun`: residual function, return the tuple (``f = \\frac{1}{2}||Ax - b||_2``, ``g = A^T(Ax - b)``)
+- `funobj`: a function that calculates the objective value (`0.5 * norm(Ax-b)^2`) and the gradient (`A'(Ax-b)`)
 - `x`: Initial guess
-- `options`: bregman options
+
+# Non-required arguments
+
+- `options`: bregman options, default is bregman_options()
+- `TD`: sparsifying transform (e.g. curvelet), default is nothing (i.e. identity)
+- `λfunc`: a function to calculate the threshold in the 1st iteration, default is nothing
+- `λ`: a pre-determined threshold, will only be used if `λfunc` is not defined, default is nothing
+- `perc`: a percentage to calculate the threshold by quantile of the dual variable in 1st iteration, will only be used if neither `λfunc` nor `λ` are defined, default is .95
 """
-function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams; TD=nothing, thresholdfunc=nothing) where {T}
+
+function bregman(funobj::Function, x::AbstractArray{T}; options=bregman_options(), TD=LinearAlgebra.I, perc=.95, λ=nothing, λfunc=nothing) where {T}
+    # set up how to calculate threshold in the first iteration
+    if isnothing(λfunc)
+        if ~isnothing(λ) 
+            λfunc = z->λ
+        else
+            λfunc = z->quantile(z, perc)
+        end
+    end
+    return bregman(funobj, x, options, TD, λfunc)
+end
+
+function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams, TD, λfunc::Function) where {T}
     # Output Parameter Settings
     if options.verbose > 0
         @printf("Running linearized bregman...\n");
@@ -88,8 +108,7 @@ function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams; 
         @printf("Maximum number of iterations: %d\n",options.maxIter)
         @printf("Anti-chatter correction: %d\n",options.antichatter)
     end
-    isnothing(TD) && (TD = LinearAlgebra.I)
-    # Intitalize variables
+    # Initialize variables
     z = TD*x
     d = similar(z)
     options.spg && (gold = similar(x); xold=similar(x))
@@ -127,30 +146,14 @@ function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams; 
         # Update z variable
         @. z = z + d
         # Get λ at first iteration
-        if i == 1
-            if ~isnothing(thresholdfunc)
-                λ = thresholdfunc(z)
-            elseif ~isnothing(options.lambda)
-                λ = options.lambda
-            else
-                λ = quantile(abs.(z), options.quantile)
-            end
-            λ = abs.(T.(λ))
-            sol.λ = abs.(T.(λ))
-        end
+        (i == 1) && (sol.λ = λ = abs.(T.(λfunc(z))))
         # Save curent state
         options.spg && (gold .= g; xold .= x)
         # Update x
         x = TD'*soft_thresholding(z, λ)
 
         obj_fun = norm(λ .* z, 1) + .5 * norm(z, 2)^2
-        if options.verbose > 0
-            if length(λ) == 1
-                @printf("%10d %15.5e %15.5e %15.5e %15.5e \n",i, t, obj_fun, f, λ)
-            else
-                @printf("%10d %15.5e %15.5e %15.5e %5s \n",i, t, obj_fun, f, "vector")
-            end
-        end
+        (options.verbose > 0) && (@printf("%10d %15.5e %15.5e %15.5e %15.5e \n",i, t, obj_fun, f, maximum(λ)))
         norm(x - sol.x) < options.progTol && (@printf("Step size below progTol\n"); break;)
         update!(sol; iter=i, ϕ=obj_fun, residual=f, x=x, z=z, g=g, store_trace=options.store_trace)
     end
