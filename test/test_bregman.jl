@@ -21,7 +21,7 @@ function obj(x)
 end
 
 opt = bregman_options(maxIter=200, progTol=0, verbose=2)
-sol = bregman(obj, 1 .+ randn(N2), opt)
+sol = bregman(obj, 1 .+ randn(N2); options=opt)
 
 @show sol.x[inds]
 @show x0[inds]
