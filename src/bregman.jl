@@ -57,13 +57,9 @@ For example, for sparsity promoting denoising (i.e LSRTM)
 # Non-required arguments
 
 - `options`: bregman options, default is bregman_options()
-- `TD`: sparsifying transform (e.g. curvelet), default is nothing (i.e. identity)
-- `λfunc`: a function to calculate the threshold in the 1st iteration, default is nothing
-- `λ`: a pre-determined threshold, will only be used if `λfunc` is not defined, default is nothing
-- `perc`: a percentage to calculate the threshold by quantile of the dual variable in 1st iteration, will only be used if neither `λfunc` nor `λ` are defined, default is .95
 """
 
-function bregman(A, x::Array{T}, b; options=bregman_options()) where {T}
+function bregman(A, x::AbstractArray{T}, b, options=bregman_options()) where {T}
     # residual function wrapper
     function obj(x)
         d = A*x
@@ -71,12 +67,12 @@ function bregman(A, x::Array{T}, b; options=bregman_options()) where {T}
         grad = A'*(d - b)
         return fun, grad
     end
-    return bregman(obj, x; options=options)
+    return bregman(obj, x, options)
 end
 
-function bregman(A, TD, x::Array{T}, b, options=bregman_options()) where {T}
+function bregman(A, TD, x::AbstractArray{T}, b, options=bregman_options()) where {T}
     options.TD = TD
-    return bregman(A, x, b; options=options)
+    return bregman(A, x, b, options)
 end
 
 """
@@ -100,13 +96,13 @@ Linearized bregman iteration for the system
 - `perc`: a percentage to calculate the threshold by quantile of the dual variable in 1st iteration, will only be used if neither `λfunc` nor `λ` are defined, default is .95
 """
 
-function bregman(funobj::Function, x::AbstractArray{T}; options=bregman_options()) where {T}
+function bregman(funobj::Function, x::AbstractArray{T}, options=bregman_options()) where {T}
     # set up how to calculate threshold in the first iteration
     if isnothing(options.λfunc)
         if ~isnothing(options.λ) 
             λfunc = z->options.λ
         else
-            λfunc = z->quantile(z, options.quantile)
+            λfunc = z->quantile(abs.(z), options.quantile)
         end
     end
     return bregman(funobj, x, options, λfunc)
@@ -114,7 +110,7 @@ end
 
 function bregman(funobj::Function, TD, x::AbstractArray{T}, options=bregman_options()) where {T}
     options.TD = TD
-    return bregman(funobj, x; options=options)
+    return bregman(funobj, x, options)
 end
 
 function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams, λfunc::Function) where {T}
