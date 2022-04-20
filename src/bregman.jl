@@ -9,11 +9,15 @@ mutable struct BregmanParams
     antichatter
     alpha
     spg
+    TD
+    quantile
+    λ
+    λfunc
 end
 
 """
     bregman_options(;verbose=1, optTol=1e-6, progTol=1e-8, maxIter=20
-                    store_trace=false, linesearch=false, alpha=.25, spg=false)
+                    store_trace=false, λ=.2, alpha=.25, spg=false)
 
 Options structure for the bregman iteration algorithm
 
@@ -24,16 +28,19 @@ Options structure for the bregman iteration algorithm
 - `maxIter`: maximum number of iterations (default: 20)
 - `store_trace`: Whether to store the trace/history of x (default: false)
 - `antichatter`: Whether to use anti-chatter step length correction
-- `quantile`: Thresholding level as quantile value, (default=.95 i.e thresholds 95% of the vector)
-- `lambda`: Thresholding level, (default=nothing then quantile will be used to determine the threshold)
 - `alpha`: Strong convexity modulus. (step length is ``α \\frac{||r||_2^2}{||g||_2^2}``)
+- `spg`: whether to use spg, default is false
+- `TD`: sparsifying transform (e.g. curvelet), default is identity (LinearAlgebra.I)
+- `λfunc`: a function to calculate threshold value, default is nothing
+- `λ`: a pre-set threshold, will only be used if `λfunc` is not defined, default is nothing
+- `quantile`: a percentage to calculate the threshold by quantile of the dual variable in 1st iteration, will only be used if neither `λfunc` nor `λ` are defined, default is .95 i.e thresholds 95% of the vector
 
 """
-bregman_options(;verbose=1, progTol=1e-8, maxIter=20, store_trace=false, antichatter=true, alpha=.5, spg=false) =
-                BregmanParams(verbose, progTol, maxIter, store_trace, antichatter, alpha, spg)
+bregman_options(;verbose=1, progTol=1e-8, maxIter=20, store_trace=false, antichatter=true, alpha=.5, spg=false, TD=LinearAlgebra.I, quantile=.95, λ=nothing, λfunc=nothing) =
+                BregmanParams(verbose, progTol, maxIter, store_trace, antichatter, alpha, spg, TD, quantile, λ, λfunc)
 
 """
-    bregman(A, x, b; options, TD, perc, λ, λfunc)
+    bregman(A, x, b; options)
 
 Linearized bregman iteration for the system
 
@@ -56,7 +63,7 @@ For example, for sparsity promoting denoising (i.e LSRTM)
 - `perc`: a percentage to calculate the threshold by quantile of the dual variable in 1st iteration, will only be used if neither `λfunc` nor `λ` are defined, default is .95
 """
 
-function bregman(A, x::Array{T}, b; options=bregman_options(), TD=LinearAlgebra.I, perc=.95, λ=nothing, λfunc=nothing) where {T}
+function bregman(A, x::Array{T}, b; options=bregman_options()) where {T}
     # residual function wrapper
     function obj(x)
         d = A*x
@@ -64,11 +71,16 @@ function bregman(A, x::Array{T}, b; options=bregman_options(), TD=LinearAlgebra.
         grad = A'*(d - b)
         return fun, grad
     end
-    return bregman(obj, x; options=options, TD=TD, perc=perc, λ=λ, λfunc=λfunc)
+    return bregman(obj, x; options=options)
+end
+
+function bregman(A, TD, x::Array{T}, b, options=bregman_options()) where {T}
+    options.TD = TD
+    return bregman(A, x, b; options=options)
 end
 
 """
-    bregman(funobj, x; options, TD, perc, λ, λfunc)
+    bregman(funobj, x; options)
 
 Linearized bregman iteration for the system
 
@@ -88,19 +100,24 @@ Linearized bregman iteration for the system
 - `perc`: a percentage to calculate the threshold by quantile of the dual variable in 1st iteration, will only be used if neither `λfunc` nor `λ` are defined, default is .95
 """
 
-function bregman(funobj::Function, x::AbstractArray{T}; options=bregman_options(), TD=LinearAlgebra.I, perc=.95, λ=nothing, λfunc=nothing) where {T}
+function bregman(funobj::Function, x::AbstractArray{T}; options=bregman_options()) where {T}
     # set up how to calculate threshold in the first iteration
-    if isnothing(λfunc)
-        if ~isnothing(λ) 
-            λfunc = z->λ
+    if isnothing(options.λfunc)
+        if ~isnothing(options.λ) 
+            λfunc = z->options.λ
         else
-            λfunc = z->quantile(z, perc)
+            λfunc = z->quantile(z, options.quantile)
         end
     end
-    return bregman(funobj, x, options, TD, λfunc)
+    return bregman(funobj, x, options, λfunc)
 end
 
-function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams, TD, λfunc::Function) where {T}
+function bregman(funobj::Function, TD, x::AbstractArray{T}, options=bregman_options()) where {T}
+    options.TD = TD
+    return bregman(funobj, x; options=options)
+end
+
+function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams, λfunc::Function) where {T}
     # Output Parameter Settings
     if options.verbose > 0
         @printf("Running linearized bregman...\n");
@@ -109,6 +126,7 @@ function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams, 
         @printf("Anti-chatter correction: %d\n",options.antichatter)
     end
     # Initialize variables
+    TD = options.TD
     z = TD*x
     d = similar(z)
     options.spg && (gold = similar(x); xold=similar(x))

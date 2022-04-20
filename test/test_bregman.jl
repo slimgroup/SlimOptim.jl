@@ -5,9 +5,9 @@ using LinearAlgebra
 
 N1 = 100
 N2 = div(N1, 2) + 5
-A = randn(N1, N2)
+A = randn(ComplexF32, N1, N2)
 
-x0 = 10 .* randn(N2)
+x0 = 10 .* randn(ComplexF32, N2)
 x0[abs.(x0) .< 1f-6] .= 1.0
 inds = rand(1:N2, div(N2, 4))
 ninds = [i for i=1:N2 if i ∉ inds]
@@ -20,8 +20,8 @@ function obj(x)
     return fun, grad
 end
 
-opt = bregman_options(maxIter=200, progTol=0, verbose=2)
-sol = bregman(obj, 1 .+ randn(N2); options=opt)
+opt = bregman_options(maxIter=200, progTol=0, verbose=2, antichatter=false) # anti chatter now only works with real number
+sol = bregman(obj, 1 .+ randn(ComplexF32, N2), opt)
 
 @show sol.x[inds]
 @show x0[inds]

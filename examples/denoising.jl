@@ -20,11 +20,11 @@ imgn= img .+ .01f0*randn(Float32, size(img))
 b = A*vec(imgn)
 
 # setup bregamn
-opt = bregman_options(maxIter=200, verbose=2, alpha=1, antichatter=true)
-opt2 = bregman_options(maxIter=200, verbose=2, alpha=1, antichatter=true, spg=true)
+opt = bregman_options(maxIter=200, verbose=2, quantile=.5, alpha=1, antichatter=true, TD=W)
+opt2 = bregman_options(maxIter=200, verbose=2, quantile=.5, alpha=1, antichatter=true, spg=true, TD=W)
 
-sol = bregman(A, zeros(Float32, n*n), b; options=opt, TD=W, perc=.5)
-sol2 = bregman(A, zeros(Float32, n*n), b; options=opt2, TD=W, perc=.5)
+sol = bregman(A, zeros(Float32, n*n), b; options=opt)
+sol2 = bregman(A, zeros(Float32, n*n), b; options=opt2)
 
 figure()
 subplot(121)
