@@ -15,7 +15,7 @@ end
 
 """
     bregman_options(;verbose=1, optTol=1e-6, progTol=1e-8, maxIter=20,
-                    store_trace=false, λ=.2, alpha=.25, spg=false)
+                    store_trace=false, quantile=.5, alpha=.25, spg=false)
 
 Options structure for the bregman iteration algorithm
 
@@ -46,7 +46,7 @@ function bregman_options(;verbose=1, progTol=1e-8, maxIter=20, store_trace=false
 end
 
 """
-    bregman(A, x, b; options)
+    bregman(A, x, b, options)
 
 Linearized bregman iteration for the system
 
@@ -62,9 +62,8 @@ For example, for sparsity promoting denoising (i.e LSRTM)
 
 # Non-required arguments
 
-- `options`: bregman options, default is bregman_options()
+- `options`: bregman options, default is bregman_options(); options.TD provides the sparsifying transform (e.g. curvelet)
 """
-
 function bregman(A, x::AbstractArray{T}, b::AbstractArray{T}, options::BregmanParams=bregman_options()) where {T}
     # residual function wrapper
     function obj(x)
@@ -77,12 +76,13 @@ function bregman(A, x::AbstractArray{T}, b::AbstractArray{T}, options::BregmanPa
 end
 
 function bregman(A, TD, x::AbstractArray{T}, b::AbstractArray{T}, options::BregmanParams=bregman_options()) where {T}
+    @warn "deprecation warning: TD should be put in BregmanParams when version >= 0.1.8; now overwritting TD in BregmanParams"
     options.TD = TD
     return bregman(A, x, b, options)
 end
 
 """
-    bregman(funobj, x; options)
+    bregman(funobj, x, options)
 
 Linearized bregman iteration for the system
 
@@ -95,19 +95,8 @@ Linearized bregman iteration for the system
 
 # Non-required arguments
 
-- `options`: bregman options, default is bregman_options()
-- `TD`: sparsifying transform (e.g. curvelet), default is nothing (i.e. identity)
-- `λfunc`: a function to calculate the threshold in the 1st iteration, default is nothing
-- `λ`: a pre-determined threshold, will only be used if `λfunc` is not defined, default is nothing
-- `quantile`: a percentage to calculate the threshold by quantile of the dual variable in 1st iteration, will only be used if neither `λfunc` nor `λ` are defined, default is .95
+- `options`: bregman options, default is bregman_options(); options.TD provides the sparsifying transform (e.g. curvelet)
 """
-
-function bregman(funobj::Function, TD, x::AbstractArray{T}, options::BregmanParams=bregman_options()) where {T}
-    @warn "deprecation warning: TD should be put in BregmanParams when version >= 0.1.8; now overwritting TD in BregmanParams"
-    options.TD = TD
-    return bregman(funobj, x, options)
-end
-
 function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams=bregman_options()) where {T}
     # Output Parameter Settings
     if options.verbose > 0
@@ -117,9 +106,7 @@ function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams=b
         @printf("Anti-chatter correction: %d\n",options.antichatter)
     end
     # Initialize variables
-    λfunc = options.λfunc
-    TD = options.TD
-    z = TD*x
+    z = options.TD*x
     d = similar(z)
     options.spg && (gold = similar(x); xold=similar(x))
     if options.antichatter
@@ -129,7 +116,7 @@ function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams=b
     # Result structure
     sol = breglog(x, z)
     # Initialize λ
-    λ = abs(T(0))
+    sol.λ = abs(T(0))
 
     # Output Log
     if options.verbose > 0
@@ -140,7 +127,7 @@ function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams=b
     for i=1:options.maxIter
         f, g = funobj(x)
         # Preconditionned ipdate direction
-        d .= -TD*g
+        d .= -options.TD*g
         # Step length
         t = (options.spg && i> 1) ? T(dot(x-xold, x-xold)/dot(x-xold, g-gold)) : T(options.alpha*f/norm(d)^2)
         t = abs(t)
@@ -151,24 +138,30 @@ function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams=b
             @assert isreal(z) "we currently do not support anti-chatter for complex numbers"
             @. tk = tk - sign(d)
             # Chatter correction
-            inds_z = findall(abs.(z) .> λ)
+            inds_z = findall(abs.(z) .> sol.λ)
             @views d[inds_z] .*= abs.(tk[inds_z])/i
         end
         # Update z variable
         @. z = z + d
         # Get λ at first iteration
-        (i == 1) && (sol.λ = λ = abs.(T.(λfunc(z))))
+        (i == 1) && (sol.λ = abs.(T.(options.λfunc(z))))
         # Save curent state
         options.spg && (gold .= g; xold .= x)
         # Update x
-        x = TD'*soft_thresholding(z, λ)
+        x = options.TD'*soft_thresholding(z, sol.λ)
 
-        obj_fun = norm(λ .* z, 1) + .5 * norm(z, 2)^2
-        (options.verbose > 0) && (@printf("%10d %15.5e %15.5e %15.5e %15.5e \n",i, t, obj_fun, f, maximum(λ)))
+        obj_fun = norm(sol.λ .* z, 1) + .5 * norm(z, 2)^2
+        (options.verbose > 0) && (@printf("%10d %15.5e %15.5e %15.5e %15.5e \n",i, t, obj_fun, f, maximum(sol.λ)))
         norm(x - sol.x) < options.progTol && (@printf("Step size below progTol\n"); break;)
         update!(sol; iter=i, ϕ=obj_fun, residual=f, x=x, z=z, g=g, store_trace=options.store_trace)
     end
     return sol
+end
+
+function bregman(funobj::Function, TD, x::AbstractArray{T}, options::BregmanParams=bregman_options()) where {T}
+    @warn "deprecation warning: TD should be put in BregmanParams when version >= 0.1.8; now overwritting TD in BregmanParams"
+    options.TD = TD
+    return bregman(funobj, x, options)
 end
 
 # Utility functions
