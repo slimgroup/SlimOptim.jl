@@ -10,13 +10,11 @@ mutable struct BregmanParams
     alpha
     spg
     TD
-    quantile
-    λ
     λfunc
 end
 
 """
-    bregman_options(;verbose=1, optTol=1e-6, progTol=1e-8, maxIter=20
+    bregman_options(;verbose=1, optTol=1e-6, progTol=1e-8, maxIter=20,
                     store_trace=false, λ=.2, alpha=.25, spg=false)
 
 Options structure for the bregman iteration algorithm
@@ -36,8 +34,16 @@ Options structure for the bregman iteration algorithm
 - `quantile`: a percentage to calculate the threshold by quantile of the dual variable in 1st iteration, will only be used if neither `λfunc` nor `λ` are defined, default is .95 i.e thresholds 95% of the vector
 
 """
-bregman_options(;verbose=1, progTol=1e-8, maxIter=20, store_trace=false, antichatter=true, alpha=.5, spg=false, TD=LinearAlgebra.I, quantile=.95, λ=nothing, λfunc=nothing) =
-                BregmanParams(verbose, progTol, maxIter, store_trace, antichatter, alpha, spg, TD, quantile, λ, λfunc)
+function bregman_options(;verbose=1, progTol=1e-8, maxIter=20, store_trace=false, antichatter=true, alpha=.5, spg=false, TD=LinearAlgebra.I, quantile=.95, λ=nothing, λfunc=nothing)
+    if isnothing(λfunc)
+        if ~isnothing(λ) 
+            λfunc = z->λ
+        else
+            λfunc = z->SlimOptim.quantile(abs.(z), quantile)
+        end
+    end
+    return BregmanParams(verbose, progTol, maxIter, store_trace, antichatter, alpha, spg, TD, λfunc)
+end
 
 """
     bregman(A, x, b; options)
@@ -59,7 +65,7 @@ For example, for sparsity promoting denoising (i.e LSRTM)
 - `options`: bregman options, default is bregman_options()
 """
 
-function bregman(A, x::AbstractArray{T}, b, options=bregman_options()) where {T}
+function bregman(A, x::AbstractArray{T}, b::AbstractArray{T}, options::BregmanParams=bregman_options()) where {T}
     # residual function wrapper
     function obj(x)
         d = A*x
@@ -70,7 +76,7 @@ function bregman(A, x::AbstractArray{T}, b, options=bregman_options()) where {T}
     return bregman(obj, x, options)
 end
 
-function bregman(A, TD, x::AbstractArray{T}, b, options=bregman_options()) where {T}
+function bregman(A, TD, x::AbstractArray{T}, b::AbstractArray{T}, options::BregmanParams=bregman_options()) where {T}
     options.TD = TD
     return bregman(A, x, b, options)
 end
@@ -93,27 +99,16 @@ Linearized bregman iteration for the system
 - `TD`: sparsifying transform (e.g. curvelet), default is nothing (i.e. identity)
 - `λfunc`: a function to calculate the threshold in the 1st iteration, default is nothing
 - `λ`: a pre-determined threshold, will only be used if `λfunc` is not defined, default is nothing
-- `perc`: a percentage to calculate the threshold by quantile of the dual variable in 1st iteration, will only be used if neither `λfunc` nor `λ` are defined, default is .95
+- `quantile`: a percentage to calculate the threshold by quantile of the dual variable in 1st iteration, will only be used if neither `λfunc` nor `λ` are defined, default is .95
 """
 
-function bregman(funobj::Function, x::AbstractArray{T}, options=bregman_options()) where {T}
-    # set up how to calculate threshold in the first iteration
-    if isnothing(options.λfunc)
-        if ~isnothing(options.λ) 
-            λfunc = z->options.λ
-        else
-            λfunc = z->quantile(abs.(z), options.quantile)
-        end
-    end
-    return bregman(funobj, x, options, λfunc)
-end
-
-function bregman(funobj::Function, TD, x::AbstractArray{T}, options=bregman_options()) where {T}
+function bregman(funobj::Function, TD, x::AbstractArray{T}, options::BregmanParams=bregman_options()) where {T}
+    @warn "deprecation warning: TD should be put in BregmanParams when version >= 0.1.8; now overwritting TD in BregmanParams"
     options.TD = TD
     return bregman(funobj, x, options)
 end
 
-function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams, λfunc::Function) where {T}
+function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams=bregman_options()) where {T}
     # Output Parameter Settings
     if options.verbose > 0
         @printf("Running linearized bregman...\n");
@@ -122,6 +117,7 @@ function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams, 
         @printf("Anti-chatter correction: %d\n",options.antichatter)
     end
     # Initialize variables
+    λfunc = options.λfunc
     TD = options.TD
     z = TD*x
     d = similar(z)
@@ -152,6 +148,7 @@ function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams, 
 
         # Anti-chatter
         if options.antichatter
+            @assert isreal(z) "we currently do not support anti-chatter for complex numbers"
             @. tk = tk - sign(d)
             # Chatter correction
             inds_z = findall(abs.(z) .> λ)

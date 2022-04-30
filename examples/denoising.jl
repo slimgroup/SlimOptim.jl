@@ -23,8 +23,8 @@ b = A*vec(imgn)
 opt = bregman_options(maxIter=200, verbose=2, quantile=.5, alpha=1, antichatter=true, TD=W)
 opt2 = bregman_options(maxIter=200, verbose=2, quantile=.5, alpha=1, antichatter=true, spg=true, TD=W)
 
-sol = bregman(A, zeros(Float32, n*n), b; options=opt)
-sol2 = bregman(A, zeros(Float32, n*n), b; options=opt2)
+sol = bregman(A, zeros(Float32, n*n), b, opt)
+sol2 = bregman(A, zeros(Float32, n*n), b, opt2)
 
 figure()
 subplot(121)

@@ -53,4 +53,4 @@ function breg_obj(x)
 end
 
 opt = bregman_options(maxIter=5, verbose=2, quantile=.9, alpha=1, antichatter=true, TD=C)#, spg=true)
-sol = bregman(breg_obj, 0f0.*vec(m0); options=opt)
+sol = bregman(breg_obj, 0f0.*vec(m0), opt)
