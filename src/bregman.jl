@@ -64,7 +64,7 @@ For example, for sparsity promoting denoising (i.e LSRTM)
 
 - `options`: bregman options, default is bregman_options(); options.TD provides the sparsifying transform (e.g. curvelet)
 """
-function bregman(A, x::AbstractArray{T}, b::AbstractArray{T}, options::BregmanParams) where {T}
+function bregman(A, x::AbstractArray{T}, b::AbstractArray{T}, options::BregmanParams=bregman_options()) where {T}
     # residual function wrapper
     function obj(x)
         d = A*x
@@ -75,7 +75,7 @@ function bregman(A, x::AbstractArray{T}, b::AbstractArray{T}, options::BregmanPa
     return bregman(obj, x, options)
 end
 
-function bregman(A, TD, x::AbstractArray{T}, b::AbstractArray{T}, options::BregmanParams) where {T}
+function bregman(A, TD, x::AbstractArray{T}, b::AbstractArray{T}, options::BregmanParams=bregman_options()) where {T}
     @warn "deprecation warning: TD should be put in BregmanParams when version >= 0.1.8; now overwritting TD in BregmanParams"
     options.TD = TD
     return bregman(A, x, b, options)
@@ -97,7 +97,7 @@ Linearized bregman iteration for the system
 
 - `options`: bregman options, default is bregman_options(); options.TD provides the sparsifying transform (e.g. curvelet)
 """
-function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams) where {T}
+function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams=bregman_options()) where {T}
     # Output Parameter Settings
     if options.verbose > 0
         @printf("Running linearized bregman...\n");
