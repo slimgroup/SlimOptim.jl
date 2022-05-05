@@ -64,7 +64,7 @@ For example, for sparsity promoting denoising (i.e LSRTM)
 
 - `options`: bregman options, default is bregman_options(); options.TD provides the sparsifying transform (e.g. curvelet)
 """
-function bregman(A, x::AbstractVector{T}, b::AbstractVector{T}, options::BregmanParams=bregman_options()) where {T}
+function bregman(A, x::AbstractVector{T1}, b::AbstractVector{T2}, options::BregmanParams=bregman_options()) where {T1<:Number, T2<:Number}
     # residual function wrapper
     function obj(x)
         d = A*x
@@ -75,7 +75,7 @@ function bregman(A, x::AbstractVector{T}, b::AbstractVector{T}, options::Bregman
     return bregman(obj, x, options)
 end
 
-function bregman(A, TD, x::AbstractVector{T}, b::AbstractVector{T}, options::BregmanParams=bregman_options()) where {T}
+function bregman(A, TD, x::AbstractVector{T1}, b::AbstractVector{T2}, options::BregmanParams=bregman_options()) where {T1<:Number, T2<:Number}
     @warn "deprecation warning: please put TD in options (BregmanParams) for version > 0.1.7; now overwritting TD in BregmanParams"
     options.TD = TD
     return bregman(A, x, b, options)
