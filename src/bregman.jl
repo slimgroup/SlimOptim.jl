@@ -39,7 +39,7 @@ function bregman_options(;verbose=1, progTol=1e-8, maxIter=20, store_trace=false
         if ~isnothing(λ) 
             λfunc = z->λ
         else
-            λfunc = z->SlimOptim.quantile(abs.(z), quantile)
+            λfunc = z->Statistics.quantile(abs.(z), quantile)
         end
     end
     return BregmanParams(verbose, progTol, maxIter, store_trace, antichatter, alpha, spg, TD, λfunc)
@@ -64,7 +64,7 @@ For example, for sparsity promoting denoising (i.e LSRTM)
 
 - `options`: bregman options, default is bregman_options(); options.TD provides the sparsifying transform (e.g. curvelet)
 """
-function bregman(A, x::AbstractArray{T}, b::AbstractArray{T}, options::BregmanParams=bregman_options()) where {T}
+function bregman(A, x::AbstractVector{T}, b::AbstractVector{T}, options::BregmanParams=bregman_options()) where {T}
     # residual function wrapper
     function obj(x)
         d = A*x
@@ -75,8 +75,8 @@ function bregman(A, x::AbstractArray{T}, b::AbstractArray{T}, options::BregmanPa
     return bregman(obj, x, options)
 end
 
-function bregman(A, TD, x::AbstractArray{T}, b::AbstractArray{T}, options::BregmanParams=bregman_options()) where {T}
-    @warn "deprecation warning: TD should be put in BregmanParams when version >= 0.1.8; now overwritting TD in BregmanParams"
+function bregman(A, TD, x::AbstractVector{T}, b::AbstractVector{T}, options::BregmanParams=bregman_options()) where {T}
+    @warn "deprecation warning: please put TD in options (BregmanParams) for version > 0.1.7; now overwritting TD in BregmanParams"
     options.TD = TD
     return bregman(A, x, b, options)
 end
@@ -97,7 +97,7 @@ Linearized bregman iteration for the system
 
 - `options`: bregman options, default is bregman_options(); options.TD provides the sparsifying transform (e.g. curvelet)
 """
-function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams=bregman_options()) where {T}
+function bregman(funobj::Function, x::AbstractVector{T}, options::BregmanParams=bregman_options()) where {T}
     # Output Parameter Settings
     if options.verbose > 0
         @printf("Running linearized bregman...\n");
@@ -115,8 +115,6 @@ function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams=b
 
     # Result structure
     sol = breglog(x, z)
-    # Initialize λ
-    sol.λ = abs(T(0))
 
     # Output Log
     if options.verbose > 0
@@ -137,9 +135,11 @@ function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams=b
         if options.antichatter
             @assert isreal(z) "we currently do not support anti-chatter for complex numbers"
             @. tk = tk - sign(d)
-            # Chatter correction
-            inds_z = findall(abs.(z) .> sol.λ)
-            @views d[inds_z] .*= abs.(tk[inds_z])/i
+            # Chatter correction after 1st iteration
+            if i > 1
+                inds_z = findall(abs.(z) .> sol.λ)
+                @views d[inds_z] .*= abs.(tk[inds_z])/i
+            end
         end
         # Update z variable
         @. z = z + d
@@ -158,33 +158,11 @@ function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams=b
     return sol
 end
 
-function bregman(funobj::Function, x::AbstractArray{T}, options::BregmanParams, TD) where {T}
-    @warn "deprecation warning: TD should be put in BregmanParams when version >= 0.1.8; now overwritting TD in BregmanParams"
+function bregman(funobj::Function, x::AbstractVector{T}, options::BregmanParams, TD) where {T}
+    @warn "deprecation warning: please put TD in options (BregmanParams) for version > 0.1.7; now overwritting TD in BregmanParams"
     options.TD = TD
     return bregman(funobj, x, options)
 end
-
-# Utility functions
-"""
-Simplified Quantile from Statistics.jl since we only need simplified version of it.
-"""
-function quantile(u::AbstractVector, p::Real)
-    0 <= p <= 1 || throw(ArgumentError("input probability out of [0,1] range"))
-    n = length(u)
-    v = sort(u; alg=Base.QuickSort)
-
-    m = 1 - p
-    aleph = n*p + oftype(p, m)
-    j = clamp(trunc(Int, aleph), 1, n-1)
-    γ = clamp(aleph - j, 0, 1)
-
-    n == 1 ? a = v[1] : a = v[j]
-    n == 1 ? b = v[1] : b = v[j+1]
-
-    (isfinite(a) && isfinite(b)) ? q = a + γ*(b-a) : q = (1-γ)*a + γ*b
-    return q
-end
-
 
 """
 Bregman result structure
