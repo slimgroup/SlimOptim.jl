@@ -3,7 +3,7 @@
 
 module SlimOptim
 
-using Printf, LinearAlgebra, LineSearches
+using Printf, LinearAlgebra, LineSearches, Statistics
 
 import LineSearches: BackTracking, HagerZhang, Static, MoreThuente, StrongWolfe
 export BackTracking, HagerZhang, Static, MoreThuente, StrongWolfe
