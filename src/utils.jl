@@ -26,6 +26,8 @@ function result(init_x::AbstractArray{T}; ϕ0=0, ϕeval=0, δϕeval=0) where T
     return result(deepcopy(init_x), T(0)*init_x, T(ϕ0), Vector{T}(), Vector{AbstractArray{T}}(), 0, ϕeval, δϕeval)
 end
 
+noop_callback(::result) = nothing
+
 function isLegal(v::AbstractArray{T}) where T
     nv = norm(v)
     return !isnan(nv) && !isinf(nv)

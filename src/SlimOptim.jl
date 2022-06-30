@@ -10,7 +10,7 @@ export BackTracking, HagerZhang, Static, MoreThuente, StrongWolfe
 
 export pqn, pqn_options
 export spg, spg_options
-export bregman, bregman_options
+export bregman, bregman_options, BregmanIterations
 #############################################################################
 # Optimization algorithms
 include("utils.jl") # common functions

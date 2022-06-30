@@ -60,11 +60,14 @@ For example, for sparsity promoting denoising (i.e LSRTM)
 - `x`: Initial guess
 - `b`: observed data
 
+# Optional Arguments
+- `callback` : Callback function. Must take as input a `result` callback(x::result)
+
 # Non-required arguments
 
 - `options`: bregman options, default is bregman_options(); options.TD provides the sparsifying transform (e.g. curvelet)
 """
-function bregman(A, x::AbstractVector{T1}, b::AbstractVector{T2}, options::BregmanParams=bregman_options()) where {T1<:Number, T2<:Number}
+function bregman(A, x::AbstractVector{T1}, b::AbstractVector{T2}, options::BregmanParams=bregman_options(); callback=noop_callback) where {T1<:Number, T2<:Number}
     # residual function wrapper
     function obj(x)
         d = A*x
@@ -72,13 +75,13 @@ function bregman(A, x::AbstractVector{T1}, b::AbstractVector{T2}, options::Bregm
         grad = A'*(d - b)
         return fun, grad
     end
-    return bregman(obj, x, options)
+    return bregman(obj, x, options; callback=callback)
 end
 
-function bregman(A, TD, x::AbstractVector{T1}, b::AbstractVector{T2}, options::BregmanParams=bregman_options()) where {T1<:Number, T2<:Number}
+function bregman(A, TD, x::AbstractVector{T1}, b::AbstractVector{T2}, options::BregmanParams=bregman_options(); callback=noop_callback) where {T1<:Number, T2<:Number}
     @warn "deprecation warning: please put TD in options (BregmanParams) for version > 0.1.7; now overwritting TD in BregmanParams"
     options.TD = TD
-    return bregman(A, x, b, options)
+    return bregman(A, x, b, options; callback=callback)
 end
 
 """
@@ -96,8 +99,12 @@ Linearized bregman iteration for the system
 # Non-required arguments
 
 - `options`: bregman options, default is bregman_options(); options.TD provides the sparsifying transform (e.g. curvelet)
+
+# Optional Arguments
+- `callback` : Callback function. Must take as input a `result` callback(x::result)
+
 """
-function bregman(funobj::Function, x::AbstractVector{T}, options::BregmanParams=bregman_options()) where {T}
+function bregman(funobj::Function, x::AbstractVector{T}, options::BregmanParams=bregman_options(); callback=noop_callback) where {T}
     # Output Parameter Settings
     if options.verbose > 0
         @printf("Running linearized bregman...\n");
@@ -154,6 +161,9 @@ function bregman(funobj::Function, x::AbstractVector{T}, options::BregmanParams=
         (options.verbose > 0) && (@printf("%10d %15.5e %15.5e %15.5e %15.5e \n",i, t, obj_fun, f, maximum(sol.λ)))
         norm(x - sol.x) < options.progTol && (@printf("Step size below progTol\n"); break;)
         update!(sol; iter=i, ϕ=obj_fun, residual=f, x=x, z=z, g=g, store_trace=options.store_trace)
+
+        # Optional callback
+        callback(sol)
     end
     return sol
 end
@@ -195,3 +205,5 @@ end
 function breglog(init_x, init_z; lambda0=0, f0=0, obj0=0)
     return BregmanIterations(1*init_x, 1*init_z, 0*init_z, f0, lambda0, obj0, Vector{}(), Vector{}(), Vector{}(), Vector{}())
 end
+
+noop_callback(::BregmanIterations) = nothing

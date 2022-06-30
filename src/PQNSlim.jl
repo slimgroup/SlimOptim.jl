@@ -58,7 +58,7 @@ function pqn_options(;verbose=1, optTol=1f-5, progTol=1f-7,
 end
 
 """
-    pqn(objective, x, projection, options)
+    pqn(objective, x, projection, options; ls=nothing, callback=nothing)
 
 Function for using a limited-memory projected quasi-Newton to solve problems of the form
   min objective(x) s.t. x in C
@@ -73,10 +73,14 @@ gradient algorithm
 - `x`: Initial guess
 - `options`: pqn_options structure
 
+# Optional Arguments
+- `ls` `: User provided linesearch function
+- `callback` : Callback function. Must take as input a `result` callback(x::result)
+
 # Notes:
     Adapted fromt he matlab implementation of minConf_PQN
 """
-function pqn(funObj, x::AbstractArray{T}, funProj::Function, options::PQN_params, ls=nothing) where {T}
+function pqn(funObj, x::AbstractArray{T}, funProj::Function, options::PQN_params=pqn_options(); ls=nothing, callback=noop_callback) where {T}
     # Result structure
     sol = result(x)
     G = similar(x)
@@ -88,11 +92,13 @@ function pqn(funObj, x::AbstractArray{T}, funProj::Function, options::PQN_params
     obj(x) = objgrad!(G, x)
 
     # Solve optimization
-    return _pqn(obj, grad!, objgrad!, projection, x, G, sol, ls, options)
+    return _pqn(obj, grad!, objgrad!, projection, x, G, sol, ls, options; callback=callback)
 end
 
+pqn(funObj, x, funProj, options, ls) = pqn(funObj, x, funProj, options;ls=ls)
+
 """
-    pqn(f, g!, fg!, x, projection,options)
+    pqn(f, g!, fg!, x, projection, options; ls=nothing, callback=nothing)
 
 Function for using a limited-memory projected quasi-Newton to solve problems of the form
   min objective(x) s.t. x in C
@@ -109,11 +115,16 @@ gradient algorithm.
 - `x`: Initial guess
 - `options`: pqn_options structure
 
+# Optional Arguments
+- `ls` `: User provided linesearch function
+- `callback` : Callback function. Must take as input a `result` callback(x::result)
+
 # Notes:
     Adapted fromt he matlab implementation of minConf_PQN
 """
 function pqn(f::Function, g!::Function, fg!::Function, x::AbstractArray{T},
-             funProj::Function, options::PQN_params, ls=nothing) where {T}
+             funProj::Function, options::PQN_params=pqn_options();
+             ls=nothing, callback=noop_callback) where {T}
     # Result structure
     sol = result(x)
     G = similar(x)
@@ -125,14 +136,17 @@ function pqn(f::Function, g!::Function, fg!::Function, x::AbstractArray{T},
     objgrad!(g, x) = (sol.n_ϕeval +=1;sol.n_geval +=1 ; return fg!(g, x))
 
     # Solve optimization
-    return _pqn(obj, grad!, objgrad!, projection, x, G, sol, ls, options)
+    return _pqn(obj, grad!, objgrad!, projection, x, G, sol, ls, options; callback=callback)
 end
+
+pqn(f, g, fg!, x, funProj, options, ls) = pqn(f, g, fg!, x, funProj, options; ls=ls)
 
 """
 Low level PQN solver
 """
 function _pqn(obj::Function, grad!::Function, objgrad!::Function, projection::Function,
-              x::AbstractArray{T}, g::AbstractArray{T}, sol::result, ls, options::PQN_params) where {T}
+              x::AbstractArray{T}, g::AbstractArray{T}, sol::result, ls, options::PQN_params;
+              callback=noop_callback) where {T}
     nVars = length(x)
     old_ϕvals = -T(Inf)*ones(T, options.memory)
     spg_opt = spg_options(optTol=options.SPGoptTol,progTol=options.SPGprogTol, maxIter=options.SPGiters,
@@ -254,6 +268,8 @@ function _pqn(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
             @printf("%10d %10d %10d %10d %15.5e %15.5e %15.5e\n",i,sol.n_ϕeval, sol.n_geval, sol.n_project, t, ϕ, optCond)
         end
 
+        # Optional callback
+        callback(sol)
     end
     isLegal(x) && update!(sol; iter=options.maxIter+1, ϕ=ϕ, x=x, g=g, store_trace=options.store_trace)
     return return sol

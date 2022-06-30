@@ -63,7 +63,7 @@ end
 
 
 """
-    spg(funObj, x, funProj, options)
+    spg(funObj, x, funProj, options; ls=nothing, callback=nothing)
 
 Function for using Spectral Projected Gradient to solve problems of the form
   min funObj(x) s.t. x in C
@@ -75,6 +75,10 @@ Function for using Spectral Projected Gradient to solve problems of the form
 - `x`: Initial guess
 - `options`: spg_options structure
 
+# Optional Arguments
+- `ls` `: User provided linesearch function
+- `callback` : Callback function. Must take as input a `result` callback(x::result)
+
 # Notes:
 
 - if the projection is expensive to compute, you can reduce the
@@ -83,7 +87,7 @@ Function for using Spectral Projected Gradient to solve problems of the form
 - Adapted fromt he matlab implementation of minConf_SPG
 """
 function spg(funObj::Function, x::AbstractArray{T}, funProj::Function,
-             options::SPG_params, ls=nothing) where {T}
+             options::SPG_params=spg_options(); ls=nothing, callback=noop_callback) where {T}
     # Result structure
     sol = result(x)
     # Initialize array for gradient
@@ -96,11 +100,13 @@ function spg(funObj::Function, x::AbstractArray{T}, funProj::Function,
     obj(x) = objgrad!(G, x)
 
     # Solve optimization
-    return _spg(obj, grad!, objgrad!, projection, x, G, sol, ls, options)
+    return _spg(obj, grad!, objgrad!, projection, x, G, sol, ls, options; callback=callback)
 end
 
+spg(funObj, x, funProj, options, ls) = spg(funObj, x, funProj, options;ls=ls)
+
 """
-    spg(f, g!, fg!, x, funProj, options)
+    spg(f, g!, fg!, x, funProj, options; ls=nothing, callback=nothing)
 
 Function for using Spectral Projected Gradient to solve problems of the form
 min funObj(x) s.t. x in C
@@ -113,6 +119,10 @@ min funObj(x) s.t. x in C
 - `x`: Initial guess
 - `options`: spg_options structure
 
+# Optional Arguments
+- `ls` `: User provided linesearch function
+- `callback` : Callback function. Must take as input a `result` callback(x::result)
+
 # Notes:
 - if the projection is expensive to compute, you can reduce the
       number of projections by setting testOpt to 0 in the options
@@ -120,7 +130,8 @@ min funObj(x) s.t. x in C
 - Adapted fromt he matlab implementation of minConf_SPG
 """
 function spg(f::Function, g!::Function, fg!::Function, x::AbstractArray{T},
-             funProj::Function, options::SPG_params, ls=nothing) where {T}
+             funProj::Function, options::SPG_params=spg_options();
+             ls=nothing, callback=noop_callback) where {T}
     # Result structure
     sol = result(x)
     # Initialize array for gradient
@@ -133,14 +144,17 @@ function spg(f::Function, g!::Function, fg!::Function, x::AbstractArray{T},
     objgrad!(g, x) = (sol.n_ϕeval +=1;sol.n_geval +=1 ; return fg!(g, x))
 
     # Solve optimization
-    return _spg(obj, grad!, objgrad!, projection, x, G, sol, ls, options)
+    return _spg(obj, grad!, objgrad!, projection, x, G, sol, ls, options; callback=callback)
 end
+
+spg(f, g!, fg!, x, funProj, options, ls) = spg(f, g!, fg!, x, funProj, options; ls=ls)
 
 """
 Low level SPG solver
 """
 function _spg(obj::Function, grad!::Function, objgrad!::Function, projection::Function,
-              x::AbstractArray{T}, g::AbstractArray{T}, sol::result, ls, options::SPG_params) where {T}
+              x::AbstractArray{T}, g::AbstractArray{T}, sol::result, ls, options::SPG_params;
+              callback=noop_callback) where {T}
     # Initialize local variables
     nVars = length(x)
     old_ϕvals = -T(Inf)*ones(T, options.memory)
@@ -216,6 +230,9 @@ function _spg(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
 
         # Output Log
         iter_log(i, sol, t, alpha, ϕ, optCond, options)
+        
+        # Potential callback
+        callback(sol)
     end
 
     # Restore best iteration
