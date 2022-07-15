@@ -32,9 +32,10 @@ Options structure for the bregman iteration algorithm
 - `λfunc`: a function to calculate threshold value, default is nothing
 - `λ`: a pre-set threshold, will only be used if `λfunc` is not defined, default is nothing
 - `quantile`: a percentage to calculate the threshold by quantile of the dual variable in 1st iteration, will only be used if neither `λfunc` nor `λ` are defined, default is .95 i.e thresholds 95% of the vector
+- `w`: a weight vector that is applied on the threshold element-wise according to relaxation of weighted l1, default is 1 (no weighting)
 
 """
-function bregman_options(;verbose=1, progTol=1e-8, maxIter=20, store_trace=false, antichatter=true, alpha=.5, spg=false, TD=LinearAlgebra.I, quantile=.95, λ=nothing, λfunc=nothing)
+function bregman_options(;verbose=1, progTol=1e-8, maxIter=20, store_trace=false, antichatter=true, alpha=.5, spg=false, TD=LinearAlgebra.I, quantile=.95, λ=nothing, λfunc=nothing, w=1)
     if isnothing(λfunc)
         if ~isnothing(λ) 
             λfunc = z->λ
@@ -42,7 +43,7 @@ function bregman_options(;verbose=1, progTol=1e-8, maxIter=20, store_trace=false
             λfunc = z->Statistics.quantile(abs.(z), quantile)
         end
     end
-    return BregmanParams(verbose, progTol, maxIter, store_trace, antichatter, alpha, spg, TD, λfunc)
+    return BregmanParams(verbose, progTol, maxIter, store_trace, antichatter, alpha, spg, TD, z->w.*λfunc(z))
 end
 
 """
@@ -50,7 +51,7 @@ end
 
 Linearized bregman iteration for the system
 
-``\\frac{1}{2} ||TD \\ x||_2^2 + λ ||TD \\ x||_1  \\ \\ \\ s.t Ax = b``
+``\\frac{1}{2} ||TD \\ x||_2^2 + λ ||TD \\ x||_{1,w}  \\ \\ \\ s.t Ax = b``
 
 For example, for sparsity promoting denoising (i.e LSRTM)
 
@@ -61,11 +62,13 @@ For example, for sparsity promoting denoising (i.e LSRTM)
 - `b`: observed data
 
 # Optional Arguments
+
 - `callback` : Callback function. Must take as input a `result` callback(x::result)
 
 # Non-required arguments
 
-- `options`: bregman options, default is bregman_options(); options.TD provides the sparsifying transform (e.g. curvelet)
+- `options`: bregman options, default is bregman_options(); options.TD provides the sparsifying transform (e.g. curvelet), options.w provides the weight vector for the weighted l1
+
 """
 function bregman(A, x::AbstractVector{T1}, b::AbstractVector{T2}, options::BregmanParams=bregman_options(); callback=noop_callback) where {T1<:Number, T2<:Number}
     # residual function wrapper
@@ -89,19 +92,20 @@ end
 
 Linearized bregman iteration for the system
 
-``\\frac{1}{2} ||TD \\ x||_2^2 + λ ||TD \\ x||_1  \\ \\ \\ s.t Ax = b``
+``\\frac{1}{2} ||TD \\ x||_2^2 + λ ||TD \\ x||_{1,w}  \\ \\ \\ s.t Ax = b``
 
 # Required arguments
 
 - `funobj`: a function that calculates the objective value (`0.5 * norm(Ax-b)^2`) and the gradient (`A'(Ax-b)`)
 - `x`: Initial guess
 
+# Optional Arguments
+
+- `callback` : Callback function. Must take as input a `result` callback(x::result)
+
 # Non-required arguments
 
-- `options`: bregman options, default is bregman_options(); options.TD provides the sparsifying transform (e.g. curvelet)
-
-# Optional Arguments
-- `callback` : Callback function. Must take as input a `result` callback(x::result)
+- `options`: bregman options, default is bregman_options(); options.TD provides the sparsifying transform (e.g. curvelet), options.w provides the weight vector for the weighted l1
 
 """
 function bregman(funobj::Function, x::AbstractVector{T}, options::BregmanParams=bregman_options(); callback=noop_callback) where {T}

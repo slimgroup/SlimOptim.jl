@@ -159,7 +159,5 @@ function subHv(p::AbstractArray{T}, x::AbstractArray{T}, g::AbstractArray{T}, Hv
 end
 
 # THresholding
-soft_thresholding(x::AbstractArray{Complex{T}}, λ::T) where {T} = exp.(angle.(x)im) .* max.(abs.(x) .- convert(T, λ), T(0))
-soft_thresholding(x::AbstractArray{Complex{T}}, λ::Array{T}) where {T} = exp.(angle.(x)im) .* max.(abs.(x) .- convert(Array{T}, λ), T(0))
-soft_thresholding(x::AbstractArray{T}, λ::T) where {T} = sign.(x) .* max.(abs.(x) .- convert(T, λ), T(0))
-soft_thresholding(x::AbstractArray{T}, λ::Array{T}) where {T} = sign.(x) .* max.(abs.(x) .- convert(Array{T}, λ), T(0))
+soft_thresholding(x::AbstractArray{Complex{T}}, λ::Union{T, Array{T}}) where {T} = exp.(angle.(x)im) .* max.(abs.(x) .- λ, T(0))
+soft_thresholding(x::AbstractArray{T}, λ::Union{Array{T}, T}) where {T} = sign.(x) .* max.(abs.(x) .- λ, T(0))

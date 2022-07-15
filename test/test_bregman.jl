@@ -6,7 +6,7 @@ using LinearAlgebra
 N1 = 100
 N2 = div(N1, 2) + 5
 
-@testset "Bregman test for type $(T)" for T = [Float32, ComplexF32]
+@testset "Bregman test for type $(T) and weighted $(weighted)" for (T, weighted) in [(Float32, true), (ComplexF32, true), (Float32, false), (ComplexF32, false)]
 
     A = randn(T, N1, N2)
     x0 = 10 .* randn(T, N2)
@@ -22,7 +22,7 @@ N2 = div(N1, 2) + 5
         return fun, grad
     end
 
-    opt = bregman_options(maxIter=200, progTol=0, verbose=2, antichatter=T==Float32)
+    opt = weighted ? bregman_options(maxIter=200, progTol=0, verbose=2, antichatter=T==Float32, w=Float32.(x0.==0)) : bregman_options(maxIter=200, progTol=0, verbose=2, antichatter=T==Float32)
     sol = bregman(obj, 1 .+ randn(T, N2), opt)
 
     @show sol.x[inds]
