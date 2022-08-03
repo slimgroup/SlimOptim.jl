@@ -1,7 +1,7 @@
 name = "SlimOptim"
 uuid = "e4c7bc62-5b23-4522-a1b9-71c2be45f1df"
 authors = ["Mathias Louboutin <mathias.louboutin@gmail.com>"]
-version = "0.1.9"
+version = "0.1.10"
 
 [deps]
 LineSearches = "d3d80556-e9d4-5f37-9878-2ab0fcc64255"

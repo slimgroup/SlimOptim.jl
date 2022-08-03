@@ -119,7 +119,7 @@ function bregman(funobj::Function, x::AbstractVector{T}, options::BregmanParams=
     # Initialize variables
     z = options.TD*x
     d = similar(z)
-    options.spg && (gold = similar(x); xold=similar(x))
+    options.spg && (gold = deepcopy(x); xold = deepcopy(x))
     if options.antichatter
         tk = 0 * z
     end
@@ -136,11 +136,10 @@ function bregman(funobj::Function, x::AbstractVector{T}, options::BregmanParams=
     for i=1:options.maxIter
         f, g = funobj(x)
         # Preconditionned ipdate direction
-        d .= -options.TD*g
+        d .= -(options.TD*g)
         # Step length
-        t = (options.spg && i> 1) ? T(dot(x-xold, x-xold)/dot(x-xold, g-gold)) : T(options.alpha*f/norm(d)^2)
-        t = abs(t)
-        mul!(d, d, t)
+        t = (options.spg) ? T(dot(x-xold, x-xold)/dot(x-xold, g-gold)) : T(options.alpha*f/norm(d)^2)
+        scale!(d, t)
 
         # Anti-chatter
         if options.antichatter
@@ -172,10 +171,10 @@ function bregman(funobj::Function, x::AbstractVector{T}, options::BregmanParams=
     return sol
 end
 
-function bregman(funobj::Function, x::AbstractVector{T}, options::BregmanParams, TD) where {T}
+function bregman(funobj::Function, x::AbstractVector{T}, options::BregmanParams, TD; kw...) where {T}
     @warn "deprecation warning: please put TD in options (BregmanParams) for version > 0.1.7; now overwritting TD in BregmanParams"
     options.TD = TD
-    return bregman(funobj, x, options)
+    return bregman(funobj, x, options; kw...)
 end
 
 """
@@ -211,3 +210,4 @@ function breglog(init_x, init_z; lambda0=0, f0=0, obj0=0)
 end
 
 noop_callback(::BregmanIterations) = nothing
+scale!(d, t) = (t == 0 || !isLegal(t)) ? lmul!(1/norm(d)^2, d) : lmul!(abs(t), d)
