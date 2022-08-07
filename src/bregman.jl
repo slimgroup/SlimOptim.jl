@@ -11,6 +11,7 @@ mutable struct BregmanParams
     spg
     TD
     λfunc
+    reset_λ
 end
 
 """
@@ -33,9 +34,11 @@ Options structure for the bregman iteration algorithm
 - `λ`: a pre-set threshold, will only be used if `λfunc` is not defined, default is nothing
 - `quantile`: a percentage to calculate the threshold by quantile of the dual variable in 1st iteration, will only be used if neither `λfunc` nor `λ` are defined, default is .95 i.e thresholds 95% of the vector
 - `w`: a weight vector that is applied on the threshold element-wise according to relaxation of weighted l1, default is 1 (no weighting)
-
+- `reset_lambda`: How often should lambda be updated. Defaults to `nothing` i.e lambda is nerver updated and estimated at the first iteration.
 """
-function bregman_options(;verbose=1, progTol=1e-8, maxIter=20, store_trace=false, antichatter=true, alpha=.5, spg=false, TD=LinearAlgebra.I, quantile=.95, λ=nothing, λfunc=nothing, w=1)
+function bregman_options(;verbose=1, progTol=1e-8, maxIter=20, store_trace=false, antichatter=true, alpha=.5,
+                          spg=false, TD=LinearAlgebra.I, quantile=.95, λ=nothing, λfunc=nothing, w=1,
+                          reset_lambda=nothing)
     if isnothing(λfunc)
         if ~isnothing(λ) 
             λfunc = z->λ
@@ -43,7 +46,7 @@ function bregman_options(;verbose=1, progTol=1e-8, maxIter=20, store_trace=false
             λfunc = z->Statistics.quantile(abs.(z), quantile)
         end
     end
-    return BregmanParams(verbose, progTol, maxIter, store_trace, antichatter, alpha, spg, TD, z->w.*λfunc(z))
+    return BregmanParams(verbose, progTol, maxIter, store_trace, antichatter, alpha, spg, TD, z->w.*λfunc(z), reset_lambda)
 end
 
 """
@@ -154,7 +157,7 @@ function bregman(funobj::Function, x::AbstractVector{T}, options::BregmanParams=
         # Update z variable
         @. z = z + d
         # Get λ at first iteration
-        (i == 1) && (sol.λ = abs.(T.(options.λfunc(z))))
+        set_λ!(sol, z, options, i, options.reset_λ)
         # Save curent state
         options.spg && (gold .= g; xold .= x)
         # Update x
@@ -211,3 +214,6 @@ end
 
 noop_callback(::BregmanIterations) = nothing
 scale!(d, t) = (t == 0 || !isLegal(t)) ? lmul!(1/norm(d)^2, d) : lmul!(abs(t), d)
+
+set_λ!(sol::BregmanIterations, z::AbstractVector{T}, options::BregmanParams, s, ::Nothing) where {T} = (s == 1) ? set_λ!(sol, z, options, s, 1) : nothing
+set_λ!(sol::BregmanIterations, z::AbstractVector{T}, options::BregmanParams, s::Integer, rs::Integer) where {T} = (s % rs == 0 || s == 1) ? (sol.λ = abs.(T.(options.λfunc(z)))) : nothing
