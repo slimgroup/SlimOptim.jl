@@ -11,6 +11,7 @@ mutable struct BregmanParams
     spg
     TD
     λfunc
+    reset_λ
 end
 
 """
@@ -33,9 +34,11 @@ Options structure for the bregman iteration algorithm
 - `λ`: a pre-set threshold, will only be used if `λfunc` is not defined, default is nothing
 - `quantile`: a percentage to calculate the threshold by quantile of the dual variable in 1st iteration, will only be used if neither `λfunc` nor `λ` are defined, default is .95 i.e thresholds 95% of the vector
 - `w`: a weight vector that is applied on the threshold element-wise according to relaxation of weighted l1, default is 1 (no weighting)
-
+- `reset_lambda`: How often should lambda be updated. Defaults to `nothing` i.e lambda is nerver updated and estimated at the first iteration.
 """
-function bregman_options(;verbose=1, progTol=1e-8, maxIter=20, store_trace=false, antichatter=true, alpha=.5, spg=false, TD=LinearAlgebra.I, quantile=.95, λ=nothing, λfunc=nothing, w=1)
+function bregman_options(;verbose=1, progTol=1e-8, maxIter=20, store_trace=false, antichatter=true, alpha=.5,
+                          spg=false, TD=LinearAlgebra.I, quantile=.95, λ=nothing, λfunc=nothing, w=1,
+                          reset_lambda=nothing)
     if isnothing(λfunc)
         if ~isnothing(λ) 
             λfunc = z->λ
@@ -43,7 +46,7 @@ function bregman_options(;verbose=1, progTol=1e-8, maxIter=20, store_trace=false
             λfunc = z->Statistics.quantile(abs.(z), quantile)
         end
     end
-    return BregmanParams(verbose, progTol, maxIter, store_trace, antichatter, alpha, spg, TD, z->w.*λfunc(z))
+    return BregmanParams(verbose, progTol, maxIter, store_trace, antichatter, alpha, spg, TD, z->w.*λfunc(z), reset_lambda)
 end
 
 """
@@ -119,7 +122,7 @@ function bregman(funobj::Function, x::AbstractVector{T}, options::BregmanParams=
     # Initialize variables
     z = options.TD*x
     d = similar(z)
-    options.spg && (gold = similar(x); xold=similar(x))
+    options.spg && (gold = deepcopy(x); xold = deepcopy(x))
     if options.antichatter
         tk = 0 * z
     end
@@ -136,11 +139,10 @@ function bregman(funobj::Function, x::AbstractVector{T}, options::BregmanParams=
     for i=1:options.maxIter
         f, g = funobj(x)
         # Preconditionned ipdate direction
-        d .= -options.TD*g
+        d .= -(options.TD*g)
         # Step length
-        t = (options.spg && i> 1) ? T(dot(x-xold, x-xold)/dot(x-xold, g-gold)) : T(options.alpha*f/norm(d)^2)
-        t = abs(t)
-        mul!(d, d, t)
+        t = (options.spg) ? T(dot(x-xold, x-xold)/dot(x-xold, g-gold)) : T(options.alpha*f/norm(d)^2)
+        scale!(d, t)
 
         # Anti-chatter
         if options.antichatter
@@ -155,7 +157,7 @@ function bregman(funobj::Function, x::AbstractVector{T}, options::BregmanParams=
         # Update z variable
         @. z = z + d
         # Get λ at first iteration
-        (i == 1) && (sol.λ = abs.(T.(options.λfunc(z))))
+        set_λ!(sol, z, options, i, options.reset_λ)
         # Save curent state
         options.spg && (gold .= g; xold .= x)
         # Update x
@@ -172,10 +174,10 @@ function bregman(funobj::Function, x::AbstractVector{T}, options::BregmanParams=
     return sol
 end
 
-function bregman(funobj::Function, x::AbstractVector{T}, options::BregmanParams, TD) where {T}
+function bregman(funobj::Function, x::AbstractVector{T}, options::BregmanParams, TD; kw...) where {T}
     @warn "deprecation warning: please put TD in options (BregmanParams) for version > 0.1.7; now overwritting TD in BregmanParams"
     options.TD = TD
-    return bregman(funobj, x, options)
+    return bregman(funobj, x, options; kw...)
 end
 
 """
@@ -211,3 +213,7 @@ function breglog(init_x, init_z; lambda0=0, f0=0, obj0=0)
 end
 
 noop_callback(::BregmanIterations) = nothing
+scale!(d, t) = (t == 0 || !isLegal(t)) ? lmul!(1/norm(d)^2, d) : lmul!(abs(t), d)
+
+set_λ!(sol::BregmanIterations, z::AbstractVector{T}, options::BregmanParams, s, ::Nothing) where {T} = (s == 1) ? set_λ!(sol, z, options, s, 1) : nothing
+set_λ!(sol::BregmanIterations, z::AbstractVector{T}, options::BregmanParams, s::Integer, rs::Integer) where {T} = (s % rs == 0 || s == 1) ? (sol.λ = abs.(T.(options.λfunc(z)))) : nothing
