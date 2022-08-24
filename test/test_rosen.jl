@@ -30,9 +30,11 @@ for (opt, algo)=zip([spg_options, pqn_options], [spg, pqn])
     x0 = zeros(2)
     options = opt(maxIter=niter, progTol=1f-30, optTol=0, iniStep=2, memory=5)
     algo(obj,x0,prj,options)
+    @show x0 ≈ [1, 1]
     @test x0 ≈ [1, 1]
 
     x1 = zeros(2)
     algo(f,g!,fg!,x1,prj,options)
     @show x1 ≈ [1, 1]
+    @test x1 ≈ [1, 1]
 end

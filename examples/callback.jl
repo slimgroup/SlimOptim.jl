@@ -24,14 +24,14 @@ end
 
 function mycallback(sol::result)
     # Print some info. ϕ_trace contains initial value so iteration is lenght-1
-    println("Bonjour at iteration $(length(sol.ϕ_trace)-1) with misfit value of $(sol.ϕ)")
+    println("Bonjour at iteration $(length(sol.ϕ_trace)-1) with misfit value of ($(sol.ϕ), $(sol.ϕ_trace[end]))")
     println("Norm of solution is $(norm(sol.x))")
     nothing
 end
 
 function mycallback(sol::BregmanIterations)
     # Print some info. ϕ_trace contains initial value so iteration is lenght-1
-    println("Bonjour at iteration $(length(sol.ϕ_trace)-1) with misfit value of $(sol.ϕ)")
+    println("Bonjour at iteration $(length(sol.ϕ_trace)-1) with misfit value of ($(sol.ϕ), $(sol.ϕ_trace[end]))")
     println("Norm of solution are $(norm(sol.x)), $(norm(sol.z))")
     nothing
 end
