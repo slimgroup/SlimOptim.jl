@@ -8,7 +8,7 @@ mutable struct result{T}
     g::AbstractArray{T}
     ϕ::T
     ϕ_trace::Vector{T}
-    x_trace::Vector{AbstractArray{T}}
+    x_trace::Vector{<:AbstractArray{T}}
     n_project::Integer
     n_ϕeval::Integer
     n_geval::Integer
@@ -18,12 +18,12 @@ function update!(r::result; x=nothing, ϕ=nothing, g=nothing, iter=1, store_trac
     ~isnothing(x) && copyto!(r.x, x)
     ~isnothing(ϕ) && (r.ϕ = ϕ)
     ~isnothing(g) && copyto!(r.g, g)
-    (~isnothing(x) && length(r.x_trace) == iter-1 && store_trace) && (push!(r.x_trace, deepcopy(x)))
-    (~isnothing(ϕ) && length(r.ϕ_trace) == iter-1) && (push!(r.ϕ_trace, ϕ))
+    (~isnothing(x) && length(r.x_trace) == iter && store_trace) && (push!(r.x_trace, deepcopy(x)))
+    (~isnothing(ϕ) && length(r.ϕ_trace) == iter) && (push!(r.ϕ_trace, ϕ))
 end
 
 function result(init_x::AbstractArray{T}; ϕ0=0, ϕeval=0, δϕeval=0) where T
-    return result(deepcopy(init_x), T(0)*init_x, T(ϕ0), Vector{T}(), Vector{AbstractArray{T}}(), 0, ϕeval, δϕeval)
+    return result(deepcopy(init_x), T(0)*init_x, T(ϕ0), Vector{T}(), [init_x], 0, ϕeval, δϕeval)
 end
 
 noop_callback(::result) = nothing

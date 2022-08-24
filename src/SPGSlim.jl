@@ -171,7 +171,7 @@ function _spg(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
     ~options.feasibleInit && (x = projection(x))
     ϕ = objgrad!(g, x)
     ϕ_best = ϕ
-    update!(sol; iter=1, ϕ=ϕ, g=g, x=x, store_trace=options.store_trace)
+    update!(sol; iter=0, ϕ=ϕ, g=g, x=x, store_trace=options.store_trace)
 
     # Output Log
     options.testOpt ? optCond = norm(projection(x-g)-x, options.optNorm) : optCond = 0
@@ -187,6 +187,7 @@ function _spg(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
 
     # Start iterations
     for i = 1:options.maxIter
+        flush(stdout)
         # Compute Step Directional
         if i == 1 || ~options.useSpectral
             alpha = T(.1*norm(x, Inf)/norm(g, Inf))
@@ -197,8 +198,7 @@ function _spg(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
         end
         # Make sure alpha value is valid
         (alpha <= 1e-10 || alpha > 1e10 || ~isLegal(alpha)) && (alpha = T(1))
-        # Update log
-        i>1 && update!(sol; iter=i, ϕ=ϕ, x=x, g=g, store_trace=options.store_trace)
+
         # Compute Step
         @. d = -T(alpha).*g
 
@@ -222,21 +222,26 @@ function _spg(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
         # Check conditioning
         options.testOpt ? optCond = norm(projection(x-g)-x, options.optNorm) : optCond = Inf
 
-        # Check if terminate
-        i>1 && (terminate(options, optCond, t, d, ϕ, sol.ϕ) && break)
-
         # Check if better than best solution
         ϕ < ϕ_best && (x_best = x; ϕ_best = ϕ)
 
+        # Update log
+        update!(sol; iter=i, ϕ=ϕ, x=x, g=g, store_trace=options.store_trace)
+
         # Output Log
         iter_log(i, sol, t, alpha, ϕ, optCond, options)
-        
+    
         # Potential callback
         callback(sol)
+
+        # Check if terminate
+        i>1 && (terminate(options, optCond, t, d, ϕ, sol.ϕ) && break)
     end
 
     # Restore best iteration
-    update!(sol; iter=options.maxIter+1, ϕ=ϕ_best, x=x_best, g=g, store_trace=options.store_trace)
+    sol.x = x_best
+    sol.ϕ = ϕ_best
+    options.store_trace && (sol.x_trace[end] = x_bes)
     return sol
 end
 

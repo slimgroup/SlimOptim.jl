@@ -179,7 +179,8 @@ function _pqn(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
     # Evaluate initial parameters
     ϕ = objgrad!(g, x)
     ϕ_best = ϕ
-    update!(sol; iter=1, ϕ=ϕ, x=x, g=g, store_trace=options.store_trace)
+    old_ϕvals[1] = T(ϕ)
+    update!(sol; iter=0, ϕ=ϕ, x=x, g=g, store_trace=options.store_trace)
 
     # Output Log
     if options.verbose > 0
@@ -199,19 +200,23 @@ function _pqn(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
     Y = zeros(T, nVars, 0)
     d = similar(x)
     p = similar(x)
-    y = similar(x)
-    s = similar(x)
+    y = Vector{T}(undef, length(x))
+    s = Vector{T}(undef, length(x))
 
     Hdiag = 1
+    i = 1
 
     for i=1:options.maxIter
+        flush(stdout)
+        # Compute the new gradient unless already computed in the previous line search
+        (i > 1 && sol.g == g) && grad!(g, x)
+        @. y = g - sol.g
+
         # Compute Step Direction
         if i == 1
             p = projection(x-g)
         else
-            @. y = g - sol.g
-            @. s = x - sol.x
-            S, Y, Hdiag = lbfgsUpdate(y[1:end], s[1:end], options.corrections, S, Y, Hdiag)
+            S, Y, Hdiag = lbfgsUpdate(y, s, options.corrections, S, Y, Hdiag)
 
             # Make Compact Representation
             k = size(Y, 2)
@@ -242,23 +247,18 @@ function _pqn(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
         # Directional derivative
         gtd = dot(g, d)
 
+        # conditioning
+        optCond = norm(projection(x-g) - x, Inf)
+
         # Select Initial Guess to step length
-        (~options.adjustStep || gtd == 0 || i==1) ? t = T(options.iniStep) : t = T(min(1, 2*(ϕ-sol.ϕ)/gtd))
-
-        # Save history
-        i>1 && update!(sol; iter=i, ϕ=ϕ, x=x, g=g, store_trace=options.store_trace)
-
-        # Compute reference function for non-monotone condition
-        old_ϕvals[i%options.memory + 1] = T(ϕ)
+        (~options.adjustStep || gtd == 0 || i==1) ? t = T(options.iniStep) : t = T(min(1, 2*(ϕ-sol.ϕ_trace[end-1])/gtd))
         
+        # save current gradient before linesearch
+        update!(sol; g=g)
+
         # Line search
         t, ϕ = linesearch(ls, sol, d, obj, grad!, objgrad!, t, maximum(old_ϕvals), gtd, g)
         x .= projection(sol.x + t*d)
-        g == sol.g && grad!(g, x)
-
-        # Check termination
-	    optCond = norm(projection(x-g) - x, Inf)
-        i>1 && (terminate(options, optCond, t, d, ϕ, sol.ϕ) && break)
     
         # Check if better than best solution
         ϕ < ϕ_best && (x_best = x; ϕ_best = ϕ)
@@ -268,9 +268,21 @@ function _pqn(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
             @printf("%10d %10d %10d %10d %15.5e %15.5e %15.5e\n",i,sol.n_ϕeval, sol.n_geval, sol.n_project, t, ϕ, optCond)
         end
 
+        # Compute reference function for non-monotone condition
+        old_ϕvals[i%options.memory + 1] = T(ϕ)
+
+        # New lbfgs vectors
+        @. s = x - sol.x
+
+        # Save history
+        update!(sol; iter=i, ϕ=ϕ, x=x, store_trace=options.store_trace)
+
         # Optional callback
         callback(sol)
+
+        # Check termination
+        i>1 && (terminate(options, optCond, t, d, ϕ, sol.ϕ) && break)
     end
-    isLegal(x) && update!(sol; iter=options.maxIter+1, ϕ=ϕ, x=x, g=g, store_trace=options.store_trace)
+
     return return sol
 end

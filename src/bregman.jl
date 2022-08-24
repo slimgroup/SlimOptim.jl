@@ -137,6 +137,7 @@ function bregman(funobj::Function, x::AbstractVector{T}, options::BregmanParams=
 
     # Iterations
     for i=1:options.maxIter
+        flush(stdout)
         f, g = funobj(x)
         # Preconditionned ipdate direction
         d .= -(options.TD*g)
@@ -165,11 +166,15 @@ function bregman(funobj::Function, x::AbstractVector{T}, options::BregmanParams=
 
         obj_fun = norm(sol.λ .* z, 1) + .5 * norm(z, 2)^2
         (options.verbose > 0) && (@printf("%10d %15.5e %15.5e %15.5e %15.5e \n",i, t, obj_fun, f, maximum(sol.λ)))
-        norm(x - sol.x) < options.progTol && (@printf("Step size below progTol\n"); break;)
-        update!(sol; iter=i, ϕ=obj_fun, residual=f, x=x, z=z, g=g, store_trace=options.store_trace)
 
         # Optional callback
         callback(sol)
+
+        # Save history
+        update!(sol; iter=i, ϕ=obj_fun, residual=f, x=x, z=z, g=g, store_trace=options.store_trace)
+
+        # Terminate if no progress
+        norm(x - sol.x) < options.progTol && (@printf("Step size below progTol\n"); break;)
     end
     return sol
 end
