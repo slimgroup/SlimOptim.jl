@@ -128,7 +128,7 @@ function bregman(funobj::Function, x::AbstractVector{T}, options::BregmanParams=
     end
 
     # Result structure
-    sol = breglog(x, z)
+    sol = breglog(x, z; obj0=l12(0, z))
 
     # Output Log
     if options.verbose > 0
@@ -138,7 +138,13 @@ function bregman(funobj::Function, x::AbstractVector{T}, options::BregmanParams=
     # Iterations
     for i=1:options.maxIter
         flush(stdout)
+        # Compute gradient
         f, g = funobj(x)
+        update!(sol; iter=i-1, residual=f)
+
+        # Optional callback at init state
+        (i == 1) && callback(sol)
+
         # Preconditionned ipdate direction
         d .= -(options.TD*g)
         # Step length
@@ -163,18 +169,20 @@ function bregman(funobj::Function, x::AbstractVector{T}, options::BregmanParams=
         options.spg && (gold .= g; xold .= x)
         # Update x
         x = options.TD'*soft_thresholding(z, sol.λ)
+        obj_fun = l12(sol.λ, sol.z)
+        progress = norm(x - sol.x)
 
-        obj_fun = norm(sol.λ .* z, 1) + .5 * norm(z, 2)^2
+        # Save history
+        update!(sol; iter=i, ϕ=obj_fun, x=x, z=z, g=g, store_trace=options.store_trace)
+
+        # Print log
         (options.verbose > 0) && (@printf("%10d %15.5e %15.5e %15.5e %15.5e \n",i, t, obj_fun, f, maximum(sol.λ)))
 
         # Optional callback
         callback(sol)
 
-        # Save history
-        update!(sol; iter=i, ϕ=obj_fun, residual=f, x=x, z=z, g=g, store_trace=options.store_trace)
-
         # Terminate if no progress
-        norm(x - sol.x) < options.progTol && (@printf("Step size below progTol\n"); break;)
+        progress < options.progTol && (@printf("Step size below progTol\n"); break;)
     end
     return sol
 end
@@ -207,14 +215,14 @@ function update!(r::BregmanIterations; x=nothing, z=nothing, ϕ=nothing, residua
     ~isnothing(ϕ) && (r.ϕ = ϕ)
     ~isnothing(residual) && (r.residual = residual)
     ~isnothing(g) && copyto!(r.g, g)
-    (~isnothing(x) && length(r.x_trace) == iter-1 && store_trace) && (push!(r.x_trace, x))
-    (~isnothing(z) && length(r.z_trace) == iter-1 && store_trace) && (push!(r.z_trace, z))
-    (~isnothing(ϕ) && length(r.ϕ_trace) == iter-1) && (push!(r.ϕ_trace, ϕ))
-    (~isnothing(residual) && length(r.r_trace) == iter-1) && (push!(r.r_trace, residual))
+    (~isnothing(x) && length(r.x_trace) == iter && store_trace) && (push!(r.x_trace, x))
+    (~isnothing(z) && length(r.z_trace) == iter && store_trace) && (push!(r.z_trace, z))
+    (~isnothing(ϕ) && length(r.ϕ_trace) == iter) && (push!(r.ϕ_trace, ϕ))
+    (~isnothing(residual) && length(r.r_trace) == iter) && (push!(r.r_trace, residual))
 end
 
 function breglog(init_x, init_z; lambda0=0, f0=0, obj0=0)
-    return BregmanIterations(1*init_x, 1*init_z, 0*init_z, f0, lambda0, obj0, Vector{}(), Vector{}(), Vector{}(), Vector{}())
+    return BregmanIterations(1*init_x, 1*init_z, 0*init_z, f0, lambda0, obj0, [obj0], [], [init_x], [init_z])
 end
 
 noop_callback(::BregmanIterations) = nothing
@@ -222,3 +230,6 @@ scale!(d, t) = (t == 0 || !isLegal(t)) ? lmul!(1/norm(d)^2, d) : lmul!(abs(t), d
 
 set_λ!(sol::BregmanIterations, z::AbstractVector{T}, options::BregmanParams, s, ::Nothing) where {T} = (s == 1) ? set_λ!(sol, z, options, s, 1) : nothing
 set_λ!(sol::BregmanIterations, z::AbstractVector{T}, options::BregmanParams, s::Integer, rs::Integer) where {T} = (s % rs == 0 || s == 1) ? (sol.λ = abs.(T.(options.λfunc(z)))) : nothing
+
+l12(λ::AbstractVector{T1}, z::AbstractVector{T}) where {T1<:Number, T<:Number} = norm(λ .* z, 1) + .5 * norm(z, 2)^2
+l12(λ::T1, z::AbstractVector{T}) where {T1<:Number, T<:Number} = abs(λ) * norm(z, 1) + .5 * norm(z, 2)^2

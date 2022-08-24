@@ -172,6 +172,8 @@ function _spg(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
     ϕ = objgrad!(g, x)
     ϕ_best = ϕ
     update!(sol; iter=0, ϕ=ϕ, g=g, x=x, store_trace=options.store_trace)
+    # call callback at initial state
+    callback(sol)
 
     # Output Log
     options.testOpt ? optCond = norm(projection(x-g)-x, options.optNorm) : optCond = 0
@@ -185,15 +187,21 @@ function _spg(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
         end
     end
 
+    # Init temporaries
+    y = Vector{T}(undef, length(x))
+    s = Vector{T}(undef, length(x))
+
     # Start iterations
     for i = 1:options.maxIter
         flush(stdout)
+        # Get gradient
+        (i > 1) && grad!(g, x)
+        @. y = g - sol.g
+
         # Compute Step Directional
         if i == 1 || ~options.useSpectral
             alpha = T(.1*norm(x, Inf)/norm(g, Inf))
         else
-            y = g - sol.g
-            s = x - sol.x
             options.bbType ? alpha = dot(s,s)/dot(s,y) : alpha = dot(s,y)/dot(y,y)
         end
         # Make sure alpha value is valid
@@ -214,10 +222,12 @@ function _spg(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
         # Compute reference function for non-monotone condition
         old_ϕvals[i%options.memory + 1] = T(ϕ)
 
+        # save current gradient before linesearch
+        update!(sol; g=g)
+
         # Line search
         t, ϕ = linesearch(ls, sol, d, obj, grad!, objgrad!, t, maximum(old_ϕvals), gtd, g)
         x .= projection(sol.x + t*d)
-        g == sol.g && grad!(g, x)
 
         # Check conditioning
         options.testOpt ? optCond = norm(projection(x-g)-x, options.optNorm) : optCond = Inf
@@ -226,7 +236,8 @@ function _spg(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
         ϕ < ϕ_best && (x_best = x; ϕ_best = ϕ)
 
         # Update log
-        update!(sol; iter=i, ϕ=ϕ, x=x, g=g, store_trace=options.store_trace)
+        @. s = x - sol.x
+        update!(sol; iter=i, ϕ=ϕ, x=x, store_trace=options.store_trace)
 
         # Output Log
         iter_log(i, sol, t, alpha, ϕ, optCond, options)

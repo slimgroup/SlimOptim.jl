@@ -181,6 +181,8 @@ function _pqn(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
     ϕ_best = ϕ
     old_ϕvals[1] = T(ϕ)
     update!(sol; iter=0, ϕ=ϕ, x=x, g=g, store_trace=options.store_trace)
+    # call callback at initial state
+    callback(sol)
 
     # Output Log
     if options.verbose > 0

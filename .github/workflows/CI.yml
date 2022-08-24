@@ -19,17 +19,13 @@ jobs:
       fail-fast: false
 
       matrix:
-        version:
-          - '1.6'
-          - '1.7'
-        os:
-          - ubuntu-latest
-        arch:
-          - x64
+        version: ['1.6', '1.7', '1.8']
+        os: [ubuntu-latest]
+        arch: [x64]
 
         include:
           - os: macos-latest
-            version: '1.7'
+            version: '1'
             arch: x64
 
     steps:
