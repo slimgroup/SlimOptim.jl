@@ -188,8 +188,8 @@ function _spg(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
     end
 
     # Init temporaries
-    y = Vector{T}(undef, length(x))
-    s = Vector{T}(undef, length(x))
+    y = similar(x)
+    s = similar(x)
 
     # Start iterations
     for i = 1:options.maxIter
