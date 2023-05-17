@@ -164,7 +164,7 @@ function _spg(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
     x_best = x
 
     # Line search function
-    isnothing(ls) && (ls = BackTracking{T}(order=3, iterations=options.maxLinesearchIter))
+    isnothing(ls) && (ls = BackTracking{T}(order=3, iterations=options.maxLinesearchIter, c_1=options.suffDec))
     checkls(ls)
 
     # Evaluate Initial Point and objective function
