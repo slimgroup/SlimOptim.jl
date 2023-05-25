@@ -252,7 +252,7 @@ function _spg(obj::Function, grad!::Function, objgrad!::Function, projection::Fu
     # Restore best iteration
     sol.x = x_best
     sol.ϕ = ϕ_best
-    options.store_trace && (sol.x_trace[end] = x_bes)
+    options.store_trace && (sol.x_trace[end] = x_best)
     return sol
 end
 
