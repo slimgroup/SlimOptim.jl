@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Constrained Inversion, basics · Slim Optimization toolbox</title><link href="https://fonts.googleapis.com/css?family=Lato|Roboto+Mono" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.0/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.0/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.0/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit">Slim Optimization toolbox</span></div><form class="docs-search" action="../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../01_denoising/">Denoising</a></li><li class="is-active"><a class="tocitem" href>Constrained Inversion, basics</a><ul class="internal"><li class="toplevel"><a class="tocitem" href="#Problem-definition"><span>Problem definition</span></a></li><li class="toplevel"><a class="tocitem" href="#Define-in-place-objective-and-gradient-functions"><span>Define in place objective and gradient functions</span></a></li><li class="toplevel"><a class="tocitem" href="#Inversion"><span>Inversion</span></a></li><li class="toplevel"><a class="tocitem" href="#Plot-solutions"><span>Plot solutions</span></a></li></ul></li><li><a class="tocitem" href="../03_constr_fwi_judi/">Constrained FWI with</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Constrained Inversion, basics</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Constrained Inversion, basics</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/slimgroup/SlimOptim.jl/blob/master/docs/src/tutorials/02_simple_constrained.md" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Constrained-Inversion,-basics"><a class="docs-heading-anchor" href="#Constrained-Inversion,-basics">Constrained Inversion, basics</a><a id="Constrained-Inversion,-basics-1"></a><a class="docs-heading-anchor-permalink" href="#Constrained-Inversion,-basics" title="Permalink"></a></h1><p>In this example, we consider as inple constrained optimization problem an look at bot SPG and PQN algorithms</p><pre><code class="language-julia">using SlimOptim, LinearAlgebra, PyPlot</code></pre><h1 id="Problem-definition"><a class="docs-heading-anchor" href="#Problem-definition">Problem definition</a><a id="Problem-definition-1"></a><a class="docs-heading-anchor-permalink" href="#Problem-definition" title="Permalink"></a></h1><p>We define a standard least square problem wuth constraints on the solution</p><pre><code class="language-julia">n = 512
+A = randn(n, n);</code></pre><h3 id="Setup-constraints"><a class="docs-heading-anchor" href="#Setup-constraints">Setup constraints</a><a id="Setup-constraints-1"></a><a class="docs-heading-anchor-permalink" href="#Setup-constraints" title="Permalink"></a></h3><pre><code class="language-julia"># x has to be be bigger than 2
+function proj(x)
+    xp = deepcopy(x)
+    xp[xp .&lt; 2] .= 2
+    return xp
+end</code></pre><pre><code class="language-none">proj (generic function with 1 method)</code></pre><pre><code class="language-julia">x_true = 2 .+ randn(n)
+x_true = proj(x_true);
+b = A*x_true;</code></pre><h1 id="Define-in-place-objective-and-gradient-functions"><a class="docs-heading-anchor" href="#Define-in-place-objective-and-gradient-functions">Define in place objective and gradient functions</a><a id="Define-in-place-objective-and-gradient-functions-1"></a><a class="docs-heading-anchor-permalink" href="#Define-in-place-objective-and-gradient-functions" title="Permalink"></a></h1><pre><code class="language-julia">function f(x)
+    return .5*norm(A*x - b)^2
+end
+
+function g!(g, x)
+     g .= A&#39;*(A*x - b)
+end
+
+function fg!(g, x)
+    f = .5*norm(A*x - b)^2
+    g .= A&#39;*(A*x - b)
+    return f
+end</code></pre><pre><code class="language-none">fg! (generic function with 1 method)</code></pre><h1 id="Inversion"><a class="docs-heading-anchor" href="#Inversion">Inversion</a><a id="Inversion-1"></a><a class="docs-heading-anchor-permalink" href="#Inversion" title="Permalink"></a></h1><pre><code class="language-julia">spgopt = spg_options(maxIter=200)
+pqnopt = pqn_options(maxIter=200)</code></pre><pre><code class="language-none">SlimOptim.PQN_params(1, 1.0f-5, 1.0f-7, 200, 0.0001f0, 10, false, true, false, 1.0f-6, 1.0f-7, 10, false, 20)</code></pre><pre><code class="language-julia">solspg = spg(f, g!, fg!, zeros(n), proj, spgopt);</code></pre><pre><code class="language-none">Running SPG...
+Number of objective function to store: 2
+Using  spectral projection : true
+Maximum number of iterations: 200
+SPG optimality tolerance: 1.00e-05
+SPG progress tolerance: 1.00e-07
+ Iteration   FunEvals  GradEvals Projections     Step Length           alpha    Function Val        Opt Cond
+         0          0          0          0     0.00000e+00     0.00000e+00     6.43586e+04     1.74158e+03
+         1          2          2          6     1.00000e+00     1.14838e-04     5.16928e+04     1.56670e+03
+         2          3          3         10     1.00000e+00     9.11654e-04     9.55011e+03     4.37705e+02
+         3          4          4         14     1.00000e+00     9.36248e-04     4.28123e+03     3.22887e+02
+         4          5          5         18     1.00000e+00     1.06696e-03     2.38016e+03     1.71788e+02
+         5          6          6         22     1.00000e+00     1.21052e-03     1.53794e+03     1.98450e+02
+         6          7          7         26     1.00000e+00     1.09634e-03     1.08454e+03     1.20651e+02
+         7          8          8         30     1.00000e+00     8.51613e-04     7.68486e+02     1.02098e+02
+         8          9          9         34     1.00000e+00     8.04981e-04     6.06793e+02     6.65342e+01
+         9         10         10         38     1.00000e+00     1.25878e-03     4.57186e+02     5.82597e+01
+        10         11         11         42     1.00000e+00     2.91370e-03     3.51207e+02     9.53526e+01
+        11         13         12         46     3.24310e-01     2.15600e-03     2.27043e+02     3.61941e+01
+        12         14         13         50     1.00000e+00     6.34114e-04     2.02552e+02     3.01056e+01
+        13         15         14         54     1.00000e+00     1.63976e-03     1.61018e+02     2.82961e+01
+        14         16         15         58     1.00000e+00     8.51908e-03     1.11194e+02     6.02229e+01
+        15         18         16         62     1.09690e-01     5.92810e-03     5.58230e+01     1.24917e+01
+        16         19         17         66     1.00000e+00     6.11612e-04     5.03563e+01     9.13537e+00
+        17         20         18         70     1.00000e+00     1.59110e-03     4.36738e+01     8.05800e+00
+        18         21         19         74     1.00000e+00     4.85664e-03     3.31495e+01     1.16047e+01
+        19         23         20         78     1.35093e-01     6.49465e-03     2.90944e+01     9.40102e+00
+        20         24         21         82     1.00000e+00     7.98379e-04     2.72993e+01     5.77931e+00
+        21         25         22         86     1.00000e+00     1.40035e-03     2.50584e+01     6.42402e+00
+        22         26         23         90     1.00000e+00     4.66894e-03     2.41955e+01     2.28105e+01
+        23         28         24         94     2.31175e-01     2.57794e-03     1.80724e+01     4.79904e+00
+        24         29         25         98     1.00000e+00     5.85974e-04     1.74156e+01     4.17424e+00
+        25         30         26        102     1.00000e+00     4.27422e-03     1.37208e+01     4.43414e+00
+        26         32         27        106     1.48690e-01     2.15869e-02     1.24107e+01     6.42103e+00
+        27         34         28        110     2.52438e-01     3.01332e-03     1.12370e+01     4.52461e+00
+        28         35         29        114     1.00000e+00     7.01221e-04     1.07647e+01     3.46244e+00
+        29         36         30        118     1.00000e+00     1.52617e-03     9.99953e+00     3.70082e+00
+        30         37         31        122     1.00000e+00     8.97359e-03     1.06643e+01     1.73156e+01
+        31         39         32        126     1.46551e-01     3.94351e-03     6.28357e+00     2.43527e+00
+        32         40         33        130     1.00000e+00     5.65261e-04     6.03481e+00     2.32069e+00
+        33         41         34        134     1.00000e+00     2.11063e-03     5.49935e+00     2.35977e+00
+        34         42         35        138     1.00000e+00     9.18688e-03     5.45901e+00     1.00254e+01
+        35         44         36        142     1.45842e-01     4.66951e-03     3.79408e+00     2.51679e+00
+        36         45         37        146     1.00000e+00     6.46365e-04     3.50514e+00     1.94783e+00
+        37         46         38        150     1.00000e+00     1.07985e-03     3.33493e+00     1.70397e+00
+        38         47         39        154     1.00000e+00     3.56875e-03     2.94898e+00     2.06227e+00
+        39         49         40        158     1.07987e-01     8.99418e-03     2.81982e+00     2.15922e+00
+        40         50         41        162     1.00000e+00     9.34325e-04     2.71215e+00     1.75633e+00
+        41         51         42        166     1.00000e+00     1.22895e-03     2.59750e+00     2.03036e+00
+        42         52         43        170     1.00000e+00     1.91834e-03     2.50071e+00     2.73450e+00
+        43         53         44        174     1.00000e+00     1.44214e-03     2.53060e+00     4.55847e+00
+        44         54         45        178     1.00000e+00     6.87398e-04     2.24458e+00     1.69277e+00
+        45         55         46        182     1.00000e+00     5.95108e-04     2.18113e+00     1.39991e+00
+        46         56         47        186     1.00000e+00     1.26538e-03     2.08476e+00     1.28360e+00
+        47         57         48        190     1.00000e+00     3.12573e-02     1.13868e+00     7.48942e+00
+        48         60         49        194     2.78684e-02     2.64729e-02     5.88753e-01     1.18377e+00
+        49         61         50        198     1.00000e+00     6.31294e-04     5.31991e-01     5.48474e-01
+        50         62         51        202     1.00000e+00     9.64354e-04     5.07279e-01     7.24977e-01
+        51         63         52        206     1.00000e+00     2.79142e-03     4.65269e-01     7.72654e-01
+        52         65         53        210     2.00245e-01     6.64484e-03     4.49914e-01     8.13937e-01
+        53         66         54        214     1.00000e+00     1.20801e-03     4.36760e-01     1.01442e+00
+        54         67         55        218     1.00000e+00     8.86314e-04     4.20876e-01     7.06753e-01
+        55         68         56        222     1.00000e+00     7.79660e-04     4.09282e-01     6.23354e-01
+        56         69         57        226     1.00000e+00     1.14761e-03     3.96290e-01     5.73528e-01
+        57         70         58        230     1.00000e+00     3.77588e-03     3.75249e-01     1.39934e+00
+        58         72         59        234     2.00884e-01     3.26817e-03     3.49641e-01     5.27126e-01
+        59         73         60        238     1.00000e+00     6.33287e-04     3.42935e-01     5.19730e-01
+        60         74         61        242     1.00000e+00     2.85248e-03     3.16989e-01     4.58775e-01
+        61         76         62        246     1.55660e-01     3.80934e-02     2.89599e-01     1.46763e+00
+        62         78         63        250     1.10876e-01     5.78621e-03     2.64492e-01     4.46932e-01
+        63         79         64        254     1.00000e+00     6.20831e-04     2.59305e-01     4.56014e-01
+        64         80         65        258     1.00000e+00     2.94896e-03     2.39454e-01     3.74111e-01
+        65         82         66        262     2.20546e-01     2.62773e-02     2.19553e-01     1.19150e+00
+        66         84         67        266     1.30750e-01     5.53293e-03     2.02102e-01     4.27416e-01
+        67         85         68        270     1.00000e+00     6.80472e-04     1.96687e-01     4.40527e-01
+        68         86         69        274     1.00000e+00     1.53392e-03     1.88652e-01     3.32734e-01
+        69         87         70        278     1.00000e+00     9.35367e-03     1.77606e-01     1.79186e+00
+        70         89         71        282     1.02542e-01     5.96778e-03     1.44448e-01     3.28094e-01
+        71         90         72        286     1.00000e+00     5.91003e-04     1.40992e-01     3.53038e-01
+        72         91         73        290     1.00000e+00     1.92408e-03     1.33911e-01     2.56879e-01
+        73         92         74        294     1.00000e+00     1.04385e-02     1.16970e-01     9.48452e-01
+        74         94         75        298     1.15285e-01     9.14863e-03     1.00148e-01     3.88615e-01
+        75         95         76        302     1.00000e+00     9.66191e-04     9.58649e-02     3.34602e-01
+        76         96         77        306     1.00000e+00     1.15562e-03     9.29120e-02     2.81519e-01
+        77         97         78        310     1.00000e+00     1.66852e-03     9.00812e-02     4.96070e-01
+        78         98         79        314     1.00000e+00     1.51303e-03     8.96729e-02     5.30551e-01
+        79         99         80        318     1.00000e+00     7.83530e-04     8.42805e-02     3.94196e-01
+        80        100         81        322     1.00000e+00     6.23772e-04     8.21698e-02     1.99996e-01
+        81        101         82        326     1.00000e+00     9.43575e-04     8.01988e-02     2.40000e-01
+        82        102         83        330     1.00000e+00     1.61758e-02     5.71616e-02     6.44812e-01
+        83        105         84        334     3.16824e-02     2.59486e-02     5.09751e-02     3.45698e-01
+        84        106         85        338     1.00000e+00     6.08080e-04     4.93079e-02     1.69315e-01
+        85        107         86        342     1.00000e+00     8.57215e-04     4.81917e-02     1.87468e-01
+        86        108         87        346     1.00000e+00     8.60290e-03     3.92177e-02     3.30372e-01
+        87        110         88        350     1.00000e-01     2.79467e-02     4.56392e-02     9.18815e-01
+        88        111         89        354     1.00000e+00     8.23956e-04     3.78282e-02     4.78190e-01
+        89        112         90        358     1.00000e+00     5.56082e-04     3.46577e-02     1.57008e-01
+        90        113         91        362     1.00000e+00     5.77477e-04     3.41425e-02     1.44116e-01
+        91        114         92        366     1.00000e+00     1.28378e-02     2.45330e-02     1.51747e-01
+        92        116         93        370     1.00000e-01     5.46516e-02     2.62654e-02     5.08009e-01
+        93        118         94        374     3.24711e-01     2.03086e-03     2.15315e-02     1.53104e-01
+        94        119         95        378     1.00000e+00     6.56394e-04     2.07614e-02     1.00206e-01
+        95        120         96        382     1.00000e+00     1.30909e-03     1.99643e-02     1.19791e-01
+        96        121         97        386     1.00000e+00     4.42527e-03     1.83588e-02     2.39983e-01
+        97        123         98        390     1.04091e-01     6.89148e-03     1.75954e-02     1.32551e-01
+        98        124         99        394     1.00000e+00     6.99256e-04     1.72595e-02     8.89980e-02
+        99        125        100        398     1.00000e+00     2.12107e-03     1.64101e-02     1.24349e-01
+       100        127        101        402     1.91372e-01     1.60548e-02     1.57003e-02     2.29814e-01
+       101        129        102        406     2.38220e-01     2.94678e-03     1.49852e-02     1.26915e-01
+       102        130        103        410     1.00000e+00     6.63368e-04     1.47116e-02     8.40596e-02
+       103        131        104        414     1.00000e+00     2.02212e-03     1.40189e-02     1.08352e-01
+       104        133        105        418     2.13794e-01     2.18712e-02     1.31642e-02     2.50550e-01
+       105        135        106        422     1.41080e-01     4.51125e-03     1.23259e-02     1.05294e-01
+       106        136        107        426     1.00000e+00     6.20924e-04     1.21226e-02     7.96526e-02
+       107        137        108        430     1.00000e+00     3.26614e-03     1.12102e-02     9.28441e-02
+       108        139        109        434     1.17696e-01     3.80741e-02     1.05404e-02     2.31788e-01
+       109        141        110        438     1.51042e-01     4.38841e-03     9.92575e-03     9.72055e-02
+       110        142        111        442     1.00000e+00     6.41071e-04     9.74450e-03     6.98994e-02
+       111        143        112        446     1.00000e+00     2.39673e-03     9.20644e-03     8.28658e-02
+       112        145        113        450     2.22182e-01     2.20146e-02     8.63028e-03     2.11028e-01
+       113        147        114        454     1.39467e-01     4.68224e-03     8.08051e-03     8.93397e-02
+       114        148        115        458     1.00000e+00     6.34256e-04     7.93349e-03     6.36165e-02
+       115        149        116        462     1.00000e+00     2.44349e-03     7.49015e-03     7.06335e-02
+       116        151        117        466     2.54950e-01     2.08040e-02     6.99355e-03     1.96979e-01
+       117        153        118        470     1.30965e-01     5.02595e-03     6.52330e-03     8.12207e-02
+       118        154        119        474     1.00000e+00     6.39562e-04     6.39699e-03     5.68647e-02
+       119        155        120        478     1.00000e+00     2.15018e-03     6.08218e-03     6.18824e-02
+       120        157        121        482     3.81302e-01     1.64075e-02     5.63677e-03     1.86951e-01
+       121        159        122        486     1.12405e-01     5.72180e-03     5.18889e-03     7.25360e-02
+       122        160        123        490     1.00000e+00     6.28822e-04     5.08574e-03     5.10345e-02
+       123        161        124        494     1.00000e+00     2.09091e-03     4.84328e-03     5.10654e-02
+       124        162        125        498     1.00000e+00     1.49127e-02     4.95518e-03     3.19092e-01
+       125        164        126        502     1.00000e-01     7.02326e-03     3.48282e-03     9.38520e-02
+       126        165        127        506     1.00000e+00     6.11246e-04     3.28122e-03     4.20319e-02
+       127        166        128        510     1.00000e+00     9.00684e-04     3.18446e-03     4.07260e-02
+       128        167        129        514     1.00000e+00     2.99236e-03     2.97272e-03     4.04108e-02
+       129        169        130        518     1.99761e-01     1.51574e-02     2.85064e-03     9.12819e-02
+       130        171        131        522     2.61380e-01     2.84341e-03     2.73003e-03     4.74350e-02
+       131        172        132        526     1.00000e+00     6.96021e-04     2.67897e-03     3.95732e-02
+       132        173        133        530     1.00000e+00     1.68761e-03     2.57989e-03     3.69408e-02
+       133        175        134        534     3.37065e-01     1.43071e-02     2.43289e-03     1.10250e-01
+       134        177        135        538     1.41059e-01     4.50086e-03     2.27779e-03     3.60251e-02
+       135        178        136        542     1.00000e+00     6.19790e-04     2.24287e-03     3.39566e-02
+       136        179        137        546     1.00000e+00     3.44626e-03     2.07536e-03     3.16146e-02
+       137        181        138        550     1.01888e-01     4.49385e-02     1.95620e-03     9.37649e-02
+       138        183        139        554     1.46707e-01     4.50337e-03     1.84551e-03     3.48796e-02
+       139        184        140        558     1.00000e+00     6.38116e-04     1.81479e-03     3.13642e-02
+       140        185        141        562     1.00000e+00     2.56214e-03     1.71406e-03     2.84151e-02
+       141        187        142        566     1.80796e-01     2.59253e-02     1.61527e-03     8.90130e-02
+       142        189        143        570     1.46007e-01     4.53963e-03     1.52159e-03     3.21633e-02
+       143        190        144        574     1.00000e+00     6.38811e-04     1.49573e-03     2.85293e-02
+       144        191        145        578     1.00000e+00     2.42806e-03     1.41727e-03     2.53309e-02
+       145        193        146        582     2.17186e-01     2.26229e-02     1.33315e-03     8.37420e-02
+       146        195        147        586     1.40569e-01     4.71374e-03     1.25282e-03     2.93042e-02
+       147        196        148        590     1.00000e+00     6.38375e-04     1.23112e-03     2.56410e-02
+       148        197        149        594     1.00000e+00     2.34300e-03     1.16895e-03     2.27124e-02
+       149        199        150        598     2.54560e-01     1.99862e-02     1.09831e-03     7.67894e-02
+       150        201        151        602     1.37898e-01     4.82629e-03     1.03025e-03     2.67566e-02
+       151        202        152        606     1.00000e+00     6.40271e-04     1.01187e-03     2.31600e-02
+       152        203        153        610     1.00000e+00     2.20297e-03     9.63819e-04     2.02366e-02
+       153        205        154        614     3.11264e-01     1.74953e-02     9.03234e-04     7.13382e-02
+       154        207        155        618     1.30045e-01     5.08196e-03     8.43516e-04     2.40218e-02
+       155        208        156        622     1.00000e+00     6.36926e-04     8.28144e-04     2.08700e-02
+       156        209        157        626     1.00000e+00     2.14805e-03     7.89800e-04     1.76924e-02
+       157        211        158        630     3.70495e-01     1.59062e-02     7.37685e-04     6.60600e-02
+       158        213        159        634     1.22799e-01     5.39672e-03     6.85385e-04     2.23752e-02
+       159        214        160        638     1.00000e+00     6.39120e-04     6.72098e-04     1.88245e-02
+       160        215        161        642     1.00000e+00     1.94951e-03     6.43679e-04     1.52568e-02
+       161        216        162        646     1.00000e+00     1.34593e-02     6.60728e-04     1.19667e-01
+       162        218        163        650     1.00000e-01     6.22211e-03     4.83046e-04     2.58516e-02
+       163        219        164        654     1.00000e+00     5.89579e-04     4.61773e-04     1.79245e-02
+       164        220        165        658     1.00000e+00     1.24674e-03     4.45398e-04     1.21365e-02
+       165        221        166        662     1.00000e+00     3.02114e-03     4.18316e-04     1.82795e-02
+       166        223        167        666     1.56689e-01     1.09027e-02     4.06209e-04     2.48219e-02
+       167        224        168        670     1.00000e+00     1.60717e-03     4.03637e-04     3.77136e-02
+       168        225        169        674     1.00000e+00     8.55705e-04     3.84736e-04     2.46285e-02
+       169        226        170        678     1.00000e+00     6.39361e-04     3.74966e-04     1.48661e-02
+       170        227        171        682     1.00000e+00     8.24889e-04     3.68213e-04     1.15919e-02
+       171        228        172        686     1.00000e+00     1.02920e-02     2.99248e-04     2.85499e-02
+       172        231        173        690     3.98923e-02     3.06388e-02     2.91577e-04     2.66898e-02
+       173        232        174        694     1.00000e+00     7.19203e-04     2.80528e-04     1.43093e-02
+       174        233        175        698     1.00000e+00     6.98499e-04     2.75673e-04     1.03118e-02
+       175        234        176        702     1.00000e+00     2.02359e-03     2.64012e-04     1.37560e-02
+       176        236        177        706     2.19335e-01     1.64022e-02     2.52442e-04     2.84481e-02
+       177        238        178        710     1.95547e-01     3.43519e-03     2.40661e-04     1.36585e-02
+       178        239        179        714     1.00000e+00     6.47704e-04     2.36916e-04     9.50043e-03
+       179        240        180        718     1.00000e+00     2.48786e-03     2.24573e-04     1.18934e-02
+       180        242        181        722     1.52068e-01     3.45029e-02     2.10746e-04     3.12955e-02
+       181        244        182        726     1.21951e-01     5.13687e-03     1.97529e-04     1.16588e-02
+       182        245        183        730     1.00000e+00     6.16235e-04     1.94671e-04     8.85038e-03
+       183        246        184        734     1.00000e+00     3.66105e-03     1.79817e-04     1.01547e-02
+       184        248        185        738     1.12626e-01     4.98514e-02     1.67959e-04     2.99766e-02
+       185        250        186        742     1.14981e-01     5.51092e-03     1.57084e-04     1.07548e-02
+       186        251        187        746     1.00000e+00     6.22669e-04     1.54643e-04     7.88595e-03
+       187        252        188        750     1.00000e+00     2.90795e-03     1.45251e-04     8.88077e-03
+       188        254        189        754     2.06668e-01     2.98051e-02     1.34978e-04     2.63712e-02
+       189        256        190        758     1.09154e-01     5.93661e-03     1.25592e-04     1.02315e-02
+       190        257        191        762     1.00000e+00     6.35426e-04     1.23350e-04     7.10132e-03
+       191        258        192        766     1.00000e+00     2.10923e-03     1.17856e-04     7.87428e-03
+       192        259        193        770     1.00000e+00     1.54463e-02     1.22851e-04     4.91207e-02
+       193        261        194        774     1.00000e-01     6.91379e-03     8.57157e-05     1.24458e-02
+       194        262        195        778     1.00000e+00     5.97581e-04     8.10100e-05     6.08195e-03
+       195        263        196        782     1.00000e+00     8.82323e-04     7.87873e-05     6.21306e-03
+       196        264        197        786     1.00000e+00     2.81259e-03     7.41525e-05     5.85756e-03
+       197        266        198        790     2.80248e-01     1.62852e-02     7.02357e-05     1.53048e-02
+       198        268        199        794     1.64326e-01     4.20594e-03     6.62986e-05     6.09616e-03
+       199        269        200        798     1.00000e+00     6.68458e-04     6.51450e-05     5.77133e-03
+       200        270        201        802     1.00000e+00     2.02537e-03     6.23930e-05     5.16853e-03</code></pre><pre><code class="language-julia">solpqn = pqn(f, g!, fg!, zeros(n), proj, pqnopt);</code></pre><pre><code class="language-none">Running PQN...
+Number of L-BFGS Corrections to store: 10
+Spectral initialization of SPG: 1
+Maximum number of SPG iterations: 10
+SPG optimality tolerance: 1.00e-06
+SPG progress tolerance: 1.00e-07
+PQN optimality tolerance: 1.00e-05
+PQN progress tolerance: 1.00e-07
+Quadratic initialization of line search: 0
+Maximum number of iterations: 200
+ Iteration   FunEvals  GradEvals Projections     Step Length    Function Val        Opt Cond
+         0          0          0          0     0.00000e+00     6.43586e+04     1.74158e+03
+         1          5          2          6     1.00000e-03     1.12088e+04     5.00193e+02
+         2          6          3         37     1.00000e+00     4.54231e+03     2.98662e+02
+         3          7          4         70     1.00000e+00     2.06001e+03     1.57737e+02
+         4          8          5        103     1.00000e+00     9.82998e+02     1.00808e+02
+         5          9          6        136     1.00000e+00     4.56067e+02     8.50505e+01
+         6         10          7        169     1.00000e+00     2.67616e+02     4.15506e+01
+         7         11          8        202     1.00000e+00     1.92744e+02     2.88074e+01
+         8         12          9        235     1.00000e+00     1.16305e+02     2.57625e+01
+         9         13         10        268     1.00000e+00     7.96665e+01     2.83135e+01
+        10         14         11        301     1.00000e+00     5.14106e+01     1.72586e+01
+        11         15         12        334     1.00000e+00     3.73887e+01     8.92290e+00
+        12         16         13        367     1.00000e+00     2.69002e+01     8.94057e+00
+        13         17         14        400     1.00000e+00     1.92797e+01     7.48904e+00
+        14         18         15        433     1.00000e+00     1.43536e+01     8.37061e+00
+        15         19         16        466     1.00000e+00     1.11029e+01     5.80731e+00
+        16         20         17        499     1.00000e+00     7.85271e+00     4.72716e+00
+        17         21         18        532     1.00000e+00     5.82694e+00     6.00975e+00
+        18         22         19        565     1.00000e+00     4.39628e+00     2.82803e+00
+        19         23         20        598     1.00000e+00     3.56750e+00     2.83429e+00
+        20         24         21        631     1.00000e+00     2.82282e+00     2.23547e+00
+        21         25         22        664     1.00000e+00     2.25303e+00     3.10365e+00
+        22         26         23        697     1.00000e+00     1.87255e+00     1.85390e+00
+        23         27         24        730     1.00000e+00     1.46381e+00     1.92033e+00
+        24         28         25        763     1.00000e+00     1.01555e+00     1.69584e+00
+        25         29         26        796     1.00000e+00     7.65100e-01     3.03526e+00
+        26         30         27        829     1.00000e+00     6.06219e-01     1.17198e+00
+        27         31         28        862     1.00000e+00     5.16868e-01     8.92980e-01
+        28         32         29        895     1.00000e+00     3.72158e-01     8.62956e-01
+        29         33         30        928     1.00000e+00     2.64318e-01     1.26354e+00
+        30         34         31        961     1.00000e+00     1.94658e-01     9.38447e-01
+        31         35         32        994     1.00000e+00     1.60645e-01     6.20065e-01
+        32         36         33       1027     1.00000e+00     1.24285e-01     6.56607e-01
+        33         37         34       1060     1.00000e+00     9.68606e-02     6.86179e-01
+        34         38         35       1093     1.00000e+00     7.48079e-02     4.35798e-01
+        35         39         36       1126     1.00000e+00     5.81404e-02     4.22953e-01
+        36         40         37       1159     1.00000e+00     4.51947e-02     6.83740e-01
+        37         41         38       1192     1.00000e+00     3.48079e-02     3.15936e-01
+        38         42         39       1225     1.00000e+00     2.82198e-02     2.54875e-01
+        39         43         40       1258     1.00000e+00     2.21134e-02     2.37847e-01
+        40         44         41       1291     1.00000e+00     1.61920e-02     2.48766e-01
+        41         45         42       1324     1.00000e+00     1.22617e-02     1.87633e-01
+        42         46         43       1357     1.00000e+00     9.77544e-03     1.44600e-01
+        43         47         44       1390     1.00000e+00     6.78058e-03     1.25214e-01
+        44         48         45       1423     1.00000e+00     5.08399e-03     1.49467e-01
+        45         49         46       1456     1.00000e+00     3.96789e-03     1.03778e-01
+        46         50         47       1489     1.00000e+00     2.80505e-03     8.96870e-02
+        47         51         48       1522     1.00000e+00     1.98806e-03     1.16806e-01
+        48         52         49       1555     1.00000e+00     1.33502e-03     7.85245e-02
+        49         53         50       1588     1.00000e+00     9.52237e-04     5.22027e-02
+        50         54         51       1621     1.00000e+00     7.38365e-04     3.78488e-02
+        51         55         52       1654     1.00000e+00     5.64995e-04     6.53816e-02
+        52         56         53       1687     1.00000e+00     4.73456e-04     3.35096e-02
+        53         57         54       1720     1.00000e+00     3.84913e-04     2.58599e-02
+        54         58         55       1753     1.00000e+00     2.79461e-04     2.18399e-02
+        55         59         56       1786     1.00000e+00     1.68513e-04     2.76946e-02
+        56         60         57       1819     1.00000e+00     1.28404e-04     4.22637e-02
+        57         61         58       1852     1.00000e+00     9.60111e-05     2.10306e-02
+        58         62         59       1879     1.00000e+00     7.80537e-05     1.26640e-02
+        59         63         60       1900     1.00000e+00     6.08178e-05     1.03112e-02
+        60         64         61       1933     1.00000e+00     4.02213e-05     1.23837e-02
+        61         65         62       1966     1.00000e+00     2.85879e-05     1.35953e-02
+        62         66         63       1999     1.00000e+00     2.13626e-05     7.39491e-03
+        63         67         64       2027     1.00000e+00     1.56684e-05     6.16891e-03
+        64         68         65       2060     1.00000e+00     9.99324e-06     7.54116e-03
+        65         69         66       2093     1.00000e+00     6.96419e-06     8.23401e-03
+        66         70         67       2111     1.00000e+00     5.60443e-06     3.71143e-03
+        67         71         68       2124     1.00000e+00     4.71354e-06     3.86080e-03
+        68         72         69       2137     1.00000e+00     3.90985e-06     3.13338e-03
+        69         73         70       2158     1.00000e+00     2.85638e-06     4.16902e-03
+        70         74         71       2173     1.00000e+00     2.28482e-06     2.81712e-03
+        71         75         72       2186     1.00000e+00     1.84743e-06     1.91517e-03
+        72         76         73       2205     1.00000e+00     1.26905e-06     2.37160e-03
+        73         77         74       2223     1.00000e+00     9.38620e-07     3.14916e-03
+        74         78         75       2241     1.00000e+00     7.30946e-07     9.59953e-04
+        75         79         76       2251     1.00000e+00     6.29565e-07     8.13586e-04
+        76         80         77       2263     1.00000e+00     4.40387e-07     1.09972e-03
+Function value changing by less than progTol</code></pre><h1 id="Plot-solutions"><a class="docs-heading-anchor" href="#Plot-solutions">Plot solutions</a><a id="Plot-solutions-1"></a><a class="docs-heading-anchor-permalink" href="#Plot-solutions" title="Permalink"></a></h1><pre><code class="language-julia">figure(figsize=(12, 4))
+subplot(131)
+plot(x_true, label=&quot;true&quot;, &quot;ro&quot;, markersize=5)
+plot(solspg.x, label=&quot;spg&quot;, &quot;g*&quot;, markersize=2)
+legend()
+subplot(132)
+plot(x_true, label=&quot;true&quot;, &quot;ro&quot;, markersize=5)
+plot(solpqn.x, label=&quot;pqn&quot;, &quot;g^&quot;, markersize=1)
+legend()
+subplot(133)
+plot(x_true - solspg.x, label=&quot;spg error&quot;, &quot;r&quot;, markersize=5)
+plot(x_true - solpqn.x, label=&quot;pqn error&quot;, &quot;g&quot;, markersize=1)
+legend()
+tight_layout()</code></pre><p><img src="../02_simple_constrained_files/02_simple_constrained_15_0.png" alt="png"/></p><pre><code class="language-julia">loglog(solspg.ϕ_trace, label=&quot;spg&quot;)
+loglog(solpqn.ϕ_trace, label=&quot;pqn&quot;)
+legend()</code></pre><p><img src="../02_simple_constrained_files/02_simple_constrained_16_0.png" alt="png"/></p><pre><code class="language-none">PyObject &lt;matplotlib.legend.Legend object at 0x14372af40&gt;</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../01_denoising/">« Denoising</a><a class="docs-footer-nextpage" href="../03_constr_fwi_judi/">Constrained FWI with »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Wednesday 7 June 2023 18:26">Wednesday 7 June 2023</span>. Using Julia version 1.9.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
