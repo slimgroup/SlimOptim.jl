@@ -44,7 +44,11 @@ function linesearch(ls, sol::result, d::AbstractArray{T}, f::Function, g!::Funct
     try
         return ls(ϕ, dϕ, ϕdϕ, t, funRef, gtd)
     catch e
-        @info "Line search failed"
-        return 0, funRef
+        if isa(e, LineSearchException)
+            @info "Line search failed"
+            return 0, funRef
+        else
+            throw(e)
+        end
     end
 end
