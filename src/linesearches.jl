@@ -27,9 +27,7 @@ Line search interface to LineSearches.jl
 function linesearch(ls, sol::result, d::AbstractArray{T}, f::Function, g!::Function, fg!::Function,
                     t::T, funRef::T, gtd::T, gvec::AbstractArray{T}) where T
     # Univariate line search functions
-    function ϕ(α)
-        phi = f(sol.x .+ α.*d)
-    end
+    ϕ(α) = f(sol.x .+ α.*d)
 
     function dϕ(α)
         g!(gvec, sol.x .+ α.*d)
@@ -49,8 +47,8 @@ function linesearch(ls, sol::result, d::AbstractArray{T}, f::Function, g!::Funct
         if isa(e, LineSearchException)
             @info "Line search failed"
             return 0, funRef
-	else
-	    throw(e)
-	end
+        else
+            throw(e)
+        end
     end
 end
